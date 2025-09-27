@@ -18,12 +18,7 @@ from utils.img import *
 
 
 def process_imgs(img_paths: list[str]) -> TensorType["batch", 3, 112, 128]:
-    imgs = torch.stack(
-        [
-            scale_img(read_img(path))
-            for path in tqdm(img_paths, desc="Processing images")
-        ]
-    )
+    imgs = torch.stack([scale_img(read_img(path)) for path in img_paths])
 
     imgs = vrgb_to_lab(imgs)
 
@@ -71,12 +66,13 @@ if __name__ == "__main__":
     chunks_size = int(sys.argv[3])
 
     chunks = [imgs[i : i + chunks_size] for i in range(0, len(imgs), chunks_size)]
-    chunks = [process_imgs(chunk).detach().cpu().numpy().astype(np.uint8) for chunk in chunks]
-    chunks = torch.cat(chunks)
+    chunks = [
+        process_imgs(chunk).detach().cpu().numpy().astype(np.uint8)
+        for chunk in tqdm(chunks, desc="Processing chunks")
+    ]
+    chunks = np.concatenate(chunks)
 
     np.savez_compressed(output_path, imgs=chunks)
-
-
 
     # random.shuffle(chunks)
 
