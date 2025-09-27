@@ -70,12 +70,13 @@ if __name__ == "__main__":
     output_path = sys.argv[2]
     chunks_size = int(sys.argv[3])
 
-    res = process_imgs(imgs)
-    res = res.detach().cpu().numpy().astype(np.uint8)
+    chunks = [imgs[i : i + chunks_size] for i in range(0, len(imgs), chunks_size)]
+    chunks = [process_imgs(chunk).detach().cpu().numpy().astype(np.uint8) for chunk in chunks]
+    chunks = torch.cat(chunks)
 
-    np.savez_compressed(output_path, imgs=res)
+    np.savez_compressed(output_path, imgs=chunks)
 
-    # chunks = [imgs[i : i + chunks_size] for i in range(0, len(imgs), chunks_size)]
+
 
     # random.shuffle(chunks)
 
