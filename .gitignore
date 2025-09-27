@@ -1,5 +1,6 @@
 old/
 datasets/
+ckpts/
 
 # MacOS
 .DS_Store
