@@ -85,7 +85,7 @@ class Trainer:
                 "optim": self.optim.state_dict(),
                 "epoch": self.epoch,
             },
-            f"ckpts/{self.name}/epoch_{self.epoch}.pth"
+            f"ckpts/{self.name}/epoch_{self.epoch}.pth",
         )
 
     def train(self, epochs, train_dl, val_dl):
@@ -114,12 +114,17 @@ if __name__ == "__main__":
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
-    ds = GBColorizeDataset(dataset)
+    db_files = len([f for f in os.listdir(dataset) if f.endswith(".npz")])
 
-    train_ds, val_ds = torch.utils.data.random_split(ds, [0.9, 0.1])
+    train_ds = GBColorizeDataset(
+        dataset, range=slice(0, db_files * int(0.9)), shuffle=True
+    )
+    val_ds = GBColorizeDataset(
+        dataset, range=slice(db_files * int(0.9), db_files), shuffle=False
+    )
 
     train_dl = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=False, num_workers=4, persistent_workers=True
+        train_ds, batch_size=batch_size, num_workers=4, persistent_workers=True
     )
 
     val_dl = DataLoader(val_ds, batch_size=len(val_ds))
