@@ -121,7 +121,7 @@ if __name__ == "__main__":
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
-    ds_chunks = []
+    ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float32)
 
     for path in tqdm(os.listdir(dataset), desc="Loading dataset"):
         if not path.endswith(".npz"): continue
@@ -133,9 +133,8 @@ if __name__ == "__main__":
 
         lab = vsingle_rgb_to_lab(rgb.view(-1, 3, 112 * 128)).view(-1, 3, 112, 128)
 
-        ds_chunks.append(torch.cat([grey, lab[:, 1:]], dim=1))
+        ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
 
-    ds_memory = torch.cat(ds_chunks, dim=0)
     ds_memory.share_memory_()
 
     ds = GBColorizeDataset(ds_memory)
