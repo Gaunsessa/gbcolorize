@@ -5,7 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as tf
 
-from torch.utils.data import DataLoader
+import numpy as np
+
+from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
 from datetime import datetime
@@ -120,17 +122,25 @@ if __name__ == "__main__":
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
-    db_files = len([f for f in os.listdir(dataset) if f.endswith(".npz")])
+    dataset = torch.tensor(
+        np.concatenate(
+            [
+                np.load(os.path.join(dataset, path))["imgs"]
+                for path in os.listdir(dataset)
+                if path.endswith(".npz")
+            ]
+        ),
+        dtype=torch.uint8,
+    )
 
-    train_ds = GBColorizeDataset(
-        dataset, range=slice(0, int(db_files * 0.9)), shuffle=True
-    )
-    val_ds = GBColorizeDataset(
-        dataset, range=slice(int(db_files * 0.9), db_files), shuffle=False
-    )
+    dataset.share_memory_()
+
+    ds = GBColorizeDataset(dataset)
+
+    train_ds, val_ds = random_split(ds, [0.9, 0.1])
 
     train_dl = DataLoader(
-        train_ds, batch_size=batch_size, num_workers=4, persistent_workers=True
+        train_ds, batch_size=batch_size, num_workers=8, persistent_workers=True, pin_memory=True
     )
 
     val_dl = DataLoader(val_ds, batch_size=len(val_ds))
