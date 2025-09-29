@@ -126,7 +126,7 @@ if __name__ == "__main__":
         np.concatenate(
             [
                 np.load(os.path.join(dataset, path))["imgs"]
-                for path in os.listdir(dataset)
+                for path in tqdm(os.listdir(dataset), desc="Loading dataset")
                 if path.endswith(".npz")
             ]
         ),
