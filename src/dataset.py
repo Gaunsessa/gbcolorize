@@ -1,13 +1,9 @@
 import os
 import sys
 import glob
-import h5py
-import random
 import numpy as np
 
 import torch
-import torchvision as tv
-import torchvision.transforms.functional as vf
 
 from tqdm import tqdm
 
@@ -45,6 +41,6 @@ if __name__ == "__main__":
 
     chunks = [imgs[i : i + chunks_size] for i in range(0, len(imgs), chunks_size)]
 
-    for i, chunk in tqdm(enumerate(chunks), desc="Processing chunks"):
+    for i, chunk in tqdm(enumerate(chunks), desc="Processing chunks", total=len(chunks)):
         chunk = process_imgs(chunk).detach().cpu().numpy().astype(np.uint8)
         np.savez_compressed(f"{output_path}_{i}.npz", imgs=chunk)
