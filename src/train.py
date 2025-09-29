@@ -18,7 +18,7 @@ from dataloader import GBColorizeDataset
 from models.conv import GBConvModel
 from models.unet import UNet
 
-from utils.color import vlab_to_rgb, vrgb_to_lab, vsingle_rgb_to_lab
+from utils.color import rgb_to_lab, vlab_to_rgb, vrgb_to_lab, vsingle_rgb_to_lab
 
 
 MODELS = {
@@ -132,7 +132,7 @@ if __name__ == "__main__":
         grey = chunk[:, :1]
         rgb = chunk[:, 1:] / 255.0
 
-        lab = vsingle_rgb_to_lab(rgb.view(-1, 3, 112 * 128)).view(-1, 3, 112, 128)
+        lab = rgb_to_lab(rgb.movedim(0, 1).reshape(3, -1)).view(3, -1, 112, 128).movedim(0, 1)
 
         ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
 
