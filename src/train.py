@@ -127,7 +127,7 @@ if __name__ == "__main__":
         train_ds, batch_size=batch_size, num_workers=4, persistent_workers=True
     )
 
-    val_dl = DataLoader(val_ds, batch_size=len(val_ds))
+    val_dl = DataLoader(val_ds, batch_size=sum(1 for _ in val_ds))
 
     model = MODELS[model_name]()
     model.init_weights()
