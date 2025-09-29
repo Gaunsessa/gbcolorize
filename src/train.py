@@ -44,8 +44,8 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl)):
-            input = input.to(self.device)
-            target = target.to(self.device)
+            input = input.to(self.device, non_blocking=True)
+            target = target.to(self.device, non_blocking=True)
 
             pred = self.model.forward(input)
 
@@ -65,8 +65,8 @@ class Trainer:
 
         with torch.no_grad():
             for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
-                input = input.to(self.device)
-                target = target.to(self.device)
+                input = input.to(self.device, non_blocking=True)
+                target = target.to(self.device, non_blocking=True)
 
                 pred = self.model.forward(input)
 
