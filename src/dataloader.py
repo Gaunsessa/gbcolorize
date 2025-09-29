@@ -17,6 +17,9 @@ class GBColorizeDataset(IterableDataset):
         self.files = [os.path.join(path, f) for f in os.listdir(path) if f.endswith(".npz")][range]
         self.shuffle = shuffle
 
+    def __len__(self) -> int:
+        return sum(np.load(file)["imgs"].shape[0] for file in self.files)
+
     def __iter__(self) -> Iterator[tuple[TensorType[1, 112, 128], TensorType[2, 112, 128]]]:
         for file in self.files:
             ds = torch.tensor(np.load(file)["imgs"], dtype=torch.uint8)
