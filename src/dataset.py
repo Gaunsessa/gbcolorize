@@ -43,4 +43,4 @@ if __name__ == "__main__":
 
     for i, chunk in tqdm(enumerate(chunks), desc="Processing chunks", total=len(chunks)):
         chunk = process_imgs(chunk).detach().cpu().numpy().astype(np.uint8)
-        np.savez_compressed(f"{output_path}_{i}.npz", imgs=chunk)
+        np.savez_compressed(os.path.join(output_path, f"{i}.npz"), imgs=chunk)
