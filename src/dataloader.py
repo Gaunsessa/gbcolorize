@@ -26,13 +26,15 @@ class GBColorizeDataset(IterableDataset):
 
             if self.shuffle:
                 ds = ds[torch.randperm(ds.shape[0])]
+
+            yield from ds
             
-            for img in ds:
-                img = img.to(torch.float32)
+            # for img in ds:
+            #     img = img.to(torch.float32)
 
-                grey = img[:1]
-                rgb = img[1:] / 255.0
+            #     grey = img[:1]
+            #     rgb = img[1:] / 255.0
 
-                lab = vrgb_to_lab(rgb.unsqueeze(0)).squeeze(0)
+            #     lab = vrgb_to_lab(rgb.unsqueeze(0)).squeeze(0)
 
-                yield grey, lab[1:]
+            #     yield grey, lab[1:]
