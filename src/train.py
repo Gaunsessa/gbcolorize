@@ -44,8 +44,8 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl)):
-            # input = input.to(self.device)
-            # target = target.to(self.device)
+            input = input.to(self.device)
+            target = target.to(self.device)
 
             pred = self.model.forward(input)
 
@@ -64,15 +64,15 @@ class Trainer:
         loss = 0
 
         for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
-            # input = input.to(self.device)
-            # target = target.to(self.device)
+            input = input.to(self.device)
+            target = target.to(self.device)
 
             pred = self.model.forward(input)
 
             loss += tf.l1_loss(pred, target)
 
         self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
-        
+
         input[:, 0][input[:, 0] == 0] = 0.60
         input[:, 0][input[:, 0] == 1] = 0.83
         input[:, 0][input[:, 0] == 2] = 0.91
@@ -139,7 +139,13 @@ if __name__ == "__main__":
     train_ds, val_ds = random_split(ds, [0.95, 0.05])
 
     train_dl = DataLoader(
-        train_ds, batch_size=batch_size, num_workers=8, persistent_workers=True, pin_memory=True
+        train_ds,
+        batch_size=batch_size,
+        num_workers=8,
+        persistent_workers=True,
+        pin_memory=True,
+        prefetch_factor=16,
+        shuffle=True,
     )
 
     val_dl = DataLoader(val_ds, batch_size=batch_size)
