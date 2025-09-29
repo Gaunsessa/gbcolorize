@@ -61,13 +61,18 @@ class Trainer:
     def forward_validate(self, dl):
         self.model.eval()
 
-        input, target = next(iter(dl))
-        input = input.to(device)
-        target = target.to(device)
+        loss = 0
 
-        pred = model.forward(input)
-        loss = tf.l1_loss(pred, target)
+        for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
+            input = input.to(self.device)
+            target = target.to(self.device)
 
+            pred = self.model.forward(input)
+
+            loss += tf.l1_loss(pred, target)
+
+        self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
+        
         input[:, 0][input[:, 0] == 0] = 0.60
         input[:, 0][input[:, 0] == 1] = 0.83
         input[:, 0][input[:, 0] == 2] = 0.91
@@ -76,7 +81,6 @@ class Trainer:
         imgs = torch.cat([input, pred], dim=1)[:100]
         imgs = vlab_to_rgb(imgs)
 
-        self.writer.add_scalar("Loss/val", loss.item(), self.epoch)
         self.writer.add_images(f"Pred Images", imgs, self.epoch)
 
     def checkpoint(self):
@@ -132,13 +136,13 @@ if __name__ == "__main__":
 
     ds = GBColorizeDataset(ds_memory)
 
-    train_ds, val_ds = random_split(ds, [0.9, 0.1])
+    train_ds, val_ds = random_split(ds, [0.95, 0.05])
 
     train_dl = DataLoader(
         train_ds, batch_size=batch_size, num_workers=8, persistent_workers=True, pin_memory=True
     )
 
-    val_dl = DataLoader(val_ds, batch_size=len(val_ds))
+    val_dl = DataLoader(val_ds, batch_size=batch_size)
 
     model = MODELS[model_name]()
     model.init_weights()
