@@ -43,14 +43,9 @@ class Trainer:
     def forward_epoch(self, dl):
         self.model.train()
 
-        for batch in tqdm(dl, desc=f"Epoch {self.epoch}", total=0):
-            batch = batch.to(torch.float32).to(self.device)
-
-            rgb = batch[:, 1:] / 255.0
-            lab = vrgb_to_lab(rgb.unsqueeze(0)).squeeze(0)
-
-            input = batch[:, :1]
-            target = lab[:, 1:]
+        for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl)):
+            input = input.to(self.device)
+            target = target.to(self.device)
 
             pred = self.model.forward(input)
 
