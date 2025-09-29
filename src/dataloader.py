@@ -21,6 +21,7 @@ class GBColorizeDataset(Dataset):
         grey = self.ds[idx][:1]
         rgb = self.ds[idx][1:] / 255.0
 
-        lab = vsingle_rgb_to_lab(rgb)
+        # lab = vsingle_rgb_to_lab(rgb)
+        lab = rgb_to_lab(rgb.view(3, -1)).view(3, 112, 128)
         
         return grey, lab[1:]
