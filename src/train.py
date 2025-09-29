@@ -129,7 +129,7 @@ if __name__ == "__main__":
                 if path.endswith(".npz")
             ]
         ),
-        dtype=torch.uint8,
+        dtype=torch.float32,
     )
 
     ds_memory.share_memory_()
