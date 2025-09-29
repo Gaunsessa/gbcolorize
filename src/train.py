@@ -117,10 +117,10 @@ if __name__ == "__main__":
     db_files = len([f for f in os.listdir(dataset) if f.endswith(".npz")])
 
     train_ds = GBColorizeDataset(
-        dataset, range=slice(0, db_files * int(0.9)), shuffle=True
+        dataset, range=slice(0, int(db_files * 0.9)), shuffle=True
     )
     val_ds = GBColorizeDataset(
-        dataset, range=slice(db_files * int(0.9), db_files), shuffle=False
+        dataset, range=slice(int(db_files * 0.9), db_files), shuffle=False
     )
 
     train_dl = DataLoader(
