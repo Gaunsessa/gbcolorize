@@ -63,13 +63,14 @@ class Trainer:
 
         loss = 0
 
-        for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
-            input = input.to(self.device)
-            target = target.to(self.device)
+        with torch.no_grad():
+            for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
+                input = input.to(self.device)
+                target = target.to(self.device)
 
-            pred = self.model.forward(input)
+                pred = self.model.forward(input)
 
-            loss += tf.l1_loss(pred, target)
+                loss += tf.l1_loss(pred, target)
 
         self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
 
