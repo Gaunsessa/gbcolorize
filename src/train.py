@@ -36,12 +36,13 @@ class Trainer:
         self.name = name
 
         self.epoch = 0
+        self.steps = 0
 
     def forward_epoch(self, dl):
         self.model.train()
 
         for i, (input, target) in tqdm(
-            enumerate(dl), total=len(dl), desc=f"Epoch {self.epoch}"
+            enumerate(dl), desc=f"Epoch {self.epoch}"
         ):
             input = input.to(self.device)
             target = target.to(self.device)
@@ -49,11 +50,13 @@ class Trainer:
             pred = self.model.forward(input)
 
             loss = tf.l1_loss(pred, target)
-            self.writer.add_scalar("Loss/train", loss.item(), self.epoch * len(dl) + i)
+            self.writer.add_scalar("Loss/train", loss.item(), self.steps)
 
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
+
+            self.steps += 1
 
     def forward_validate(self, dl):
         self.model.eval()
@@ -70,7 +73,7 @@ class Trainer:
         input[:, 0][input[:, 0] == 2] = 0.91
         input[:, 0][input[:, 0] == 3] = 0.97
 
-        imgs = torch.cat([input, pred], dim=1)
+        imgs = torch.cat([input, pred], dim=1)[:100]
         imgs = vlab_to_rgb(imgs)
 
         self.writer.add_scalar("Loss/val", loss.item(), self.epoch)
