@@ -117,7 +117,7 @@ if __name__ == "__main__":
         else "mps" if torch.backends.mps.is_available() else "cpu"
     )
 
-    dataset = torch.tensor(
+    ds_memory = torch.tensor(
         np.concatenate(
             [
                 np.load(os.path.join(dataset, path))["imgs"]
@@ -128,9 +128,9 @@ if __name__ == "__main__":
         dtype=torch.uint8,
     )
 
-    dataset.share_memory_()
+    ds_memory.share_memory_()
 
-    ds = GBColorizeDataset(dataset)
+    ds = GBColorizeDataset(ds_memory)
 
     train_ds, val_ds = random_split(ds, [0.9, 0.1])
 
