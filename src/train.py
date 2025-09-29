@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     optim = torch.optim.AdamW(model.parameters(), lr=lr)
 
-    run_name = f"{model_name}_{dataset}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    run_name = f"{model_name}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
     if device == "cuda" and torch.cuda.device_count() > 1:
         model = nn.DataParallel(model).to(device)
