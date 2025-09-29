@@ -131,13 +131,11 @@ if __name__ == "__main__":
         grey = chunk[:, :1]
         rgb = chunk[:, 1:] / 255.0
 
-        lab = vsingle_rgb_to_lab(rgb.view(3, -1)).view(3, 112, 128)
+        lab = vsingle_rgb_to_lab(rgb.view(-1, 3, 112 * 128)).view(-1, 3, 112, 128)
 
-        ds_chunks.append(torch.cat([grey, lab[1:]], dim=1))
-        
+        ds_chunks.append(torch.cat([grey, lab[:, 1:]], dim=1))
 
     ds_memory = torch.cat(ds_chunks, dim=0)
-
     ds_memory.share_memory_()
 
     ds = GBColorizeDataset(ds_memory)
@@ -160,7 +158,7 @@ if __name__ == "__main__":
     model.init_weights()
     model.to(device)
 
-    optim = torch.optim.Adam(model.parameters(), lr=lr)
+    optim = torch.optim.AdamW(model.parameters(), lr=lr)
 
     run_name = f"{model_name}_{dataset}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
