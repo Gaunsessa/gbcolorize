@@ -61,5 +61,7 @@ def lab_to_rgb(lab: torch.Tensor) -> torch.Tensor:
 
 
 # This double vmap is horrific
+vsingle_rgb_to_lab = torch.vmap(rgb_to_lab, in_dims=1, out_dims=1)
+
 vrgb_to_lab = torch.vmap(torch.vmap(rgb_to_lab, in_dims=1, out_dims=1))
 vlab_to_rgb = torch.vmap(torch.vmap(lab_to_rgb, in_dims=1, out_dims=1))

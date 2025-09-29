@@ -44,8 +44,8 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl)):
-            input = input.to(self.device)
-            target = target.to(self.device)
+            # input = input.to(self.device)
+            # target = target.to(self.device)
 
             pred = self.model.forward(input)
 
@@ -64,8 +64,8 @@ class Trainer:
         loss = 0
 
         for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
-            input = input.to(self.device)
-            target = target.to(self.device)
+            # input = input.to(self.device)
+            # target = target.to(self.device)
 
             pred = self.model.forward(input)
 
