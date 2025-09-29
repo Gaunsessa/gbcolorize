@@ -18,10 +18,11 @@ class GBColorizeDataset(Dataset):
         return self.ds.shape[0]
     
     def __getitem__(self, idx) -> tuple[TensorType[1, 112, 128], TensorType[2, 112, 128]]:
-        grey = self.ds[idx][:1]
-        rgb = self.ds[idx][1:] / 255.0
+        # grey = self.ds[idx][:1]
+        # rgb = self.ds[idx][1:] / 255.0
 
-        # lab = vsingle_rgb_to_lab(rgb)
-        lab = rgb_to_lab(rgb.view(3, -1)).view(3, 112, 128)
+        # # lab = vsingle_rgb_to_lab(rgb)
+        # lab = rgb_to_lab(rgb.view(3, -1)).view(3, 112, 128)
         
-        return grey, lab[1:]
+        # return grey, lab[1:]
+        return self.ds[idx, :1], self.ds[idx, 1:]
