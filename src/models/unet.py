@@ -27,26 +27,26 @@ class UNet(nn.Module):
         super(UNet, self).__init__()
 
         self.encoders = nn.ModuleList([
-            ConvBlock(1, 32),
+            ConvBlock(1, 16),
+            ConvBlock(16, 32),
             ConvBlock(32, 64),
             ConvBlock(64, 128),
-            ConvBlock(128, 256),
         ])
 
-        self.bottleneck = ConvBlock(256, 256)
+        self.bottleneck = ConvBlock(128, 128)
 
         self.decoders = nn.ModuleList([
-            ConvBlock(512, 128),
             ConvBlock(256, 64),
             ConvBlock(128, 32),
-            ConvBlock(64, 2),
+            ConvBlock(64, 16),
+            ConvBlock(32, 2),
         ])
 
         self.up_samples = nn.ModuleList([
-            nn.ConvTranspose2d(256, 256, 2, stride=2),
             nn.ConvTranspose2d(128, 128, 2, stride=2),
             nn.ConvTranspose2d(64, 64, 2, stride=2),
             nn.ConvTranspose2d(32, 32, 2, stride=2),
+            nn.ConvTranspose2d(16, 16, 2, stride=2),
         ])
 
     def forward(self, x: TensorType["batch", 1, 112, 128]) -> TensorType["batch", 2, 112, 128]:
