@@ -1,11 +1,11 @@
 import os
 import sys
-import multiprocessing as mp
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as tf
 import torch.distributed as dist
+import torch.multiprocessing as mp
 
 import numpy as np
 
