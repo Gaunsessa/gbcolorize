@@ -46,7 +46,7 @@ class Trainer:
     def forward_epoch(self, dl):
         self.model.train()
 
-        for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl)):
+        for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
             pred = self.model.forward(input)
 
             loss = tf.l1_loss(pred, target)
@@ -66,7 +66,7 @@ class Trainer:
         loss = 0
 
         with torch.no_grad():
-            for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
+            for input, target in tqdm(dl, desc=f"Validation", total=len(dl), disable=self.rank != 0):
                 pred = self.model.forward(input)
 
                 loss += tf.l1_loss(pred, target)
@@ -126,7 +126,7 @@ def load_dataset(dataset, rank, world_size):
         if path.endswith(".npz")
     ])
 
-    for i, path in tqdm(enumerate(paths), desc="Loading dataset", total=len(paths)):
+    for i, path in tqdm(enumerate(paths), desc="Loading dataset", total=len(paths), disable=rank != 0):
         if i % world_size != rank:
             continue
 
