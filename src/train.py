@@ -120,11 +120,11 @@ def cleanup_ddp():
 def load_dataset(dataset, rank, world_size):
     ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float32)
 
-    paths = [
+    paths = sorted([
         os.path.join(dataset, path)
         for path in os.listdir(dataset)
         if path.endswith(".npz")
-    ]
+    ])
 
     for i, path in tqdm(enumerate(paths), desc="Loading dataset", total=len(paths)):
         if i % world_size != rank:
@@ -159,7 +159,7 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
     train_ds, val_ds = random_split(ds, [0.95, 0.05])
 
     train_dl = DataLoader(
-        train_ds, batch_size=batch_size, num_workers=4, pin_memory=True, shuffle=True
+        train_ds, batch_size=batch_size, shuffle=True
     )
     val_dl = DataLoader(val_ds, batch_size=batch_size)
 
