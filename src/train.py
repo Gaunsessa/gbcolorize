@@ -145,7 +145,7 @@ def load_dataset(dataset, rank, world_size):
 
         ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
 
-    ds_memory.to(f"cuda:{rank}")
+    ds_memory = ds_memory.to(f"cuda:{rank}")
 
     return GBColorizeDataset(ds_memory)
 
