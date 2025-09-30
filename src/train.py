@@ -167,6 +167,9 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
     model = MODELS[model_name]()
     model.init_weights()
     model.to(device)
+
+    model = torch.compile(model)
+
     model = nn.parallel.DistributedDataParallel(model, device_ids=[rank])
 
     optim = torch.optim.AdamW(model.parameters(), lr=lr)
