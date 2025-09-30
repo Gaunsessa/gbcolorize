@@ -3,29 +3,29 @@ import torch.nn as nn
 class GBConvModel(nn.Sequential):
     def __init__(self):
         super().__init__(
-            nn.Conv2d(1, 32, 4, stride=2, padding=0),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, 3, stride=2, padding=0),
+            nn.Conv2d(1, 64, 4, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.Conv2d(64, 128, 3, stride=2, padding=0),
+            nn.Conv2d(64, 128, 4, stride=2, padding=0),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.Conv2d(128, 256, 3, stride=2, padding=0),
+            nn.Conv2d(128, 256, 4, stride=1, padding=0),
             nn.BatchNorm2d(256),
             nn.ReLU(),
+            nn.Conv2d(256, 512, 4, stride=2, padding=0),
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
 
-            nn.ConvTranspose2d(256, 128, 3, stride=2, padding=0),
+            nn.ConvTranspose2d(512, 256, 4, stride=2, padding=0),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.ConvTranspose2d(256, 128, 4, stride=1, padding=0),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 3, stride=2, padding=0),
+            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=0),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, 3, stride=2, padding=0),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, 2, 4, stride=2, padding=0),
+            nn.ConvTranspose2d(64, 2, 4, stride=2, padding=1),
         )
 
     def init_weights(self):
