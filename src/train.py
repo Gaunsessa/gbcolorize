@@ -1,9 +1,11 @@
 import os
 import sys
+import multiprocessing as mp
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as tf
+import torch.distributed as dist
 
 import numpy as np
 
@@ -18,7 +20,7 @@ from dataloader import GBColorizeDataset
 from models.conv import GBConvModel
 from models.unet import UNet
 
-from utils.color import rgb_to_lab, vlab_to_rgb, vrgb_to_lab, vsingle_rgb_to_lab
+from utils.color import rgb_to_lab, vlab_to_rgb
 
 
 MODELS = {
@@ -30,12 +32,13 @@ MODELS = {
 class Trainer:
     model: nn.Module
 
-    def __init__(self, model, optim, name, device):
+    def __init__(self, model, optim, name, device, rank):
         self.model = model
         self.optim = optim
         self.device = device
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter() if rank == 0 else None
         self.name = name
+        self.rank = rank
 
         self.epoch = 0
         self.steps = 0
@@ -44,13 +47,12 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl)):
-            input = input.to(self.device, non_blocking=True)
-            target = target.to(self.device, non_blocking=True)
-
             pred = self.model.forward(input)
 
             loss = tf.l1_loss(pred, target)
-            self.writer.add_scalar("Loss/train", loss.item(), self.steps)
+
+            if self.writer is not None:
+                self.writer.add_scalar("Loss/train", loss.item(), self.steps)
 
             self.optim.zero_grad()
             loss.backward()
@@ -65,26 +67,26 @@ class Trainer:
 
         with torch.no_grad():
             for input, target in tqdm(dl, desc=f"Validation", total=len(dl)):
-                input = input.to(self.device, non_blocking=True)
-                target = target.to(self.device, non_blocking=True)
-
                 pred = self.model.forward(input)
 
                 loss += tf.l1_loss(pred, target)
 
-        self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
+        if self.writer is not None:
+            self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
 
-        input[:, 0][input[:, 0] == 0] = 0.60
-        input[:, 0][input[:, 0] == 1] = 0.83
-        input[:, 0][input[:, 0] == 2] = 0.91
-        input[:, 0][input[:, 0] == 3] = 0.97
+            input[:, 0][input[:, 0] == 0] = 0.60
+            input[:, 0][input[:, 0] == 1] = 0.83
+            input[:, 0][input[:, 0] == 2] = 0.91
+            input[:, 0][input[:, 0] == 3] = 0.97
 
-        imgs = torch.cat([input, pred], dim=1)[:100]
-        imgs = vlab_to_rgb(imgs)
+            imgs = torch.cat([input, pred], dim=1)[:100]
+            imgs = vlab_to_rgb(imgs)
 
-        self.writer.add_images(f"Pred Images", imgs, self.epoch)
+            self.writer.add_images(f"Pred Images", imgs, self.epoch)
 
     def checkpoint(self):
+        if self.rank != 0: return
+
         os.makedirs(f"ckpts/{self.name}", exist_ok=True)
 
         torch.save(
@@ -105,6 +107,78 @@ class Trainer:
                 self.checkpoint()
 
 
+def setup_ddp(rank, world_size):
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+
+def cleanup_ddp():
+    dist.destroy_process_group()
+
+
+def load_dataset(dataset, rank, world_size):
+    ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float32)
+
+    paths = [
+        os.path.join(dataset, path)
+        for path in os.listdir(dataset)
+        if path.endswith(".npz")
+    ]
+
+    for i, path in tqdm(enumerate(paths), desc="Loading dataset", total=len(paths)):
+        if i % world_size != rank:
+            continue
+
+        print(f"Loading {path} on rank {rank}")
+
+        chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float32)
+
+        grey = chunk[:, :1]
+        rgb = chunk[:, 1:] / 255.0
+
+        lab = (
+            rgb_to_lab(rgb.movedim(0, 1).reshape(3, -1))
+            .view(3, -1, 112, 128)
+            .movedim(0, 1)
+        )
+
+        ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
+
+    ds_memory.to(f"cuda:{rank}")
+
+    return GBColorizeDataset(ds_memory)
+
+
+def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
+    setup_ddp(rank, world_size)
+    device = f"cuda:{rank}"
+
+    # Dataset
+    ds = load_dataset(dataset, rank, world_size)
+    train_ds, val_ds = random_split(ds, [0.95, 0.05])
+
+    train_dl = DataLoader(
+        train_ds, batch_size=batch_size, num_workers=4, pin_memory=True, shuffle=True
+    )
+    val_dl = DataLoader(val_ds, batch_size=batch_size)
+
+    # Model
+    model = MODELS[model_name]()
+    model.init_weights()
+    model.to(device)
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[rank])
+
+    optim = torch.optim.AdamW(model.parameters(), lr=lr)
+
+    # Train
+    run_name = f"{model_name}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    trainer = Trainer(model, optim, run_name, device, rank)
+    trainer.train(epochs, train_dl, val_dl)
+
+    cleanup_ddp()
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 6:
         print("Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr>")
@@ -116,54 +190,10 @@ if __name__ == "__main__":
     batch_size = int(sys.argv[4])
     lr = float(sys.argv[5])
 
-    device = (
-        "cuda"
-        if torch.cuda.is_available()
-        else "mps" if torch.backends.mps.is_available() else "cpu"
+    world_size = torch.cuda.device_count()
+    mp.spawn(
+        train_ddp,
+        args=(world_size, model_name, dataset, epochs, batch_size, lr),
+        nprocs=world_size,
+        join=True,
     )
-
-    ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float32)
-
-    for path in tqdm(os.listdir(dataset), desc="Loading dataset"):
-        if not path.endswith(".npz"): continue
-
-        chunk = torch.tensor(np.load(os.path.join(dataset, path))["imgs"], dtype=torch.float32)
-
-        grey = chunk[:, :1]
-        rgb = chunk[:, 1:] / 255.0
-
-        lab = rgb_to_lab(rgb.movedim(0, 1).reshape(3, -1)).view(3, -1, 112, 128).movedim(0, 1)
-
-        ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
-
-    ds_memory.share_memory_()
-
-    ds = GBColorizeDataset(ds_memory)
-
-    train_ds, val_ds = random_split(ds, [0.95, 0.05])
-
-    train_dl = DataLoader(
-        train_ds,
-        batch_size=batch_size,
-        num_workers=8,
-        persistent_workers=True,
-        pin_memory=True,
-        prefetch_factor=16,
-        shuffle=True,
-    )
-
-    val_dl = DataLoader(val_ds, batch_size=batch_size)
-
-    model = MODELS[model_name]()
-    model.init_weights()
-    model.to(device)
-
-    optim = torch.optim.AdamW(model.parameters(), lr=lr)
-
-    run_name = f"{model_name}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-
-    if device == "cuda" and torch.cuda.device_count() > 1:
-        model = nn.DataParallel(model).to(device)
-
-    trainer = Trainer(model, optim, run_name, device)
-    trainer.train(epochs, train_dl, val_dl)
