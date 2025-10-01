@@ -22,6 +22,7 @@ from models.unet import UNet
 from models.resp import RespModel
 
 from utils.color import rgb_to_lab, vlab_to_rgb
+from perceptual_loss import PerceptualLoss
 
 
 MODELS = {
@@ -37,6 +38,7 @@ class Trainer:
     def __init__(self, model, optim, name, device, rank):
         self.model = model
         self.optim = optim
+        self.perceptual_loss = PerceptualLoss().to(device)
         self.device = device
         self.writer = SummaryWriter() if rank == 0 else None
         self.name = name
@@ -53,7 +55,7 @@ class Trainer:
 
             pred = self.model.forward(input)
 
-            loss = tf.l1_loss(pred, target)
+            loss = tf.l1_loss(pred, target) + self.perceptual_loss(pred, target)
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
