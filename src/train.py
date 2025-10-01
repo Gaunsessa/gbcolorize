@@ -51,7 +51,9 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
-            input = input.flip(-1) if torch.rand(1) < 0.5 else input
+            flip = torch.rand(1) < 0.5
+            input = input.flip(-1) if flip else input
+            target = target.flip(-1) if flip else target
 
             with torch.autocast(device_type="cuda"):
                 pred = self.model.forward(input / 3.0)
