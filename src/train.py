@@ -55,7 +55,7 @@ class Trainer:
 
             pred = self.model.forward(input)
 
-            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target)
+            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.2
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
@@ -111,7 +111,7 @@ class Trainer:
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
-            if self.epoch == 3:
+            if self.epoch == 10:
                 self.model.module.freeze_encoder(False)
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:

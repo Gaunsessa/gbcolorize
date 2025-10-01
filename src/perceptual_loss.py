@@ -28,4 +28,11 @@ class PerceptualLoss(nn.Module):
         x = torch.vmap(lab_to_rgb)(x.view(x.shape[0], 3, -1)).view(x.shape[0], 3, 112, 128)
         y = torch.vmap(lab_to_rgb)(y.view(y.shape[0], 3, -1)).view(y.shape[0], 3, 112, 128)
 
+        # ImageNet mean and std
+        mean = torch.tensor([0.485, 0.456, 0.406], device=x.device).view(1, 3, 1, 1)
+        std  = torch.tensor([0.229, 0.224, 0.225], device=x.device).view(1, 3, 1, 1)
+
+        x = (x - mean) / std
+        y = (y - mean) / std
+
         return torch.nn.functional.mse_loss(self.vgg16(x), self.vgg16(y))
