@@ -107,7 +107,7 @@ class RespModel(nn.Module):
                 nn.init.kaiming_normal_(
                     layer.weight, mode="fan_out", nonlinearity="relu"
                 )
-                nn.init.constant_(layer.bias, 0)
+                # nn.init.constant_(layer.bias, 0)
             elif isinstance(layer, nn.BatchNorm2d):
                 nn.init.constant_(layer.weight, 1)
                 nn.init.constant_(layer.bias, 0)
