@@ -141,7 +141,7 @@ def load_dataset(dataset, rank, world_size):
 
         chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float32)
 
-        grey = chunk[:, :1]
+        grey = chunk[:, :1] / 3.0
         rgb = chunk[:, 1:] / 255.0
 
         lab = (
