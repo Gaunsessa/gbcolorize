@@ -38,7 +38,7 @@ class Trainer:
     def __init__(self, model, optim, name, device, rank):
         self.model = model
         self.optim = optim
-        self.perceptual_loss = PerceptualLoss().to(device)
+        # self.perceptual_loss = PerceptualLoss().to(device)
         self.device = device
         self.writer = SummaryWriter() if rank == 0 else None
         self.name = name
@@ -57,8 +57,8 @@ class Trainer:
 
             # with torch.autocast(device_type="cuda"):
             pred = self.model.forward(input / 3.0)
-            # loss = tf.l1_loss(pred, target)
-            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.1
+            loss = tf.l1_loss(pred, target)
+            # loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.1
 
 
             if self.writer is not None:
