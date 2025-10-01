@@ -17,6 +17,8 @@ class PerceptualLoss(nn.Module):
             param.requires_grad = False
 
     def forward(self, grey, x_ab, y_ab):
+        grey = grey.clone()
+        
         grey[grey == 0] = 0.60
         grey[grey == 1] = 0.83
         grey[grey == 2] = 0.91
