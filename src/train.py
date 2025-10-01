@@ -49,14 +49,14 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
-            pred = self.model.forward(input)
-
-            loss = tf.l1_loss(pred, target)
+            with torch.autocast(device_type="cuda"):
+                pred = self.model.forward(input / 3.0)
+                loss = tf.l1_loss(pred, target)
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
 
-            self.optim.zero_grad()
+            self.optim.zero_grad(set_to_none=True)
             loss.backward()
             self.optim.step()
 
@@ -69,7 +69,8 @@ class Trainer:
 
         with torch.no_grad():
             for input, target in tqdm(dl, desc=f"Validation", total=len(dl), disable=self.rank != 0):
-                pred = self.model.forward(input)
+                with torch.autocast(device_type="cuda"):
+                    pred = self.model.forward(input / 3.0)
 
                 loss += tf.l1_loss(pred, target)
 
@@ -107,7 +108,7 @@ class Trainer:
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
-            if self.epoch == 3:
+            if self.epoch == 5:
                 self.model.module.freeze_encoder(False)
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:

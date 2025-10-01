@@ -37,17 +37,17 @@ class RespModel(nn.Module):
         self.decoder = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(128),
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(256, 64, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(256, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
@@ -85,7 +85,7 @@ class RespModel(nn.Module):
                 nn.init.kaiming_normal_(
                     layer.weight, mode="fan_out", nonlinearity="relu"
                 )
-                nn.init.constant_(layer.bias, 0)
+                # nn.init.constant_(layer.bias, 0)
             elif isinstance(layer, nn.BatchNorm2d):
                 nn.init.constant_(layer.weight, 1)
                 nn.init.constant_(layer.bias, 0)
