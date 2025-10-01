@@ -114,6 +114,12 @@ class Trainer:
             if self.epoch == 10:
                 self.model.module.freeze_encoder(False)
 
+                # Ensure new params have no momentum
+                for p in self.model.module.encoder_params:
+                    if p in self.optim.state:
+                        self.optim.state[p]['exp_avg'].zero_()
+                        self.optim.state[p]['exp_avg_sq'].zero_()
+
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:
                 self.checkpoint()
 
