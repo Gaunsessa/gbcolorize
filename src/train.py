@@ -38,7 +38,7 @@ class Trainer:
     def __init__(self, model, optim, name, device, rank):
         self.model = model
         self.optim = optim
-        # self.perceptual_loss = PerceptualLoss().to(device)
+        self.perceptual_loss = PerceptualLoss().to(device)
         self.device = device
         self.writer = SummaryWriter() if rank == 0 else None
         self.name = name
