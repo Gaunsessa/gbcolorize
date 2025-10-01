@@ -115,7 +115,7 @@ class Trainer:
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
-            if self.epoch == 3:
+            if self.epoch == 100:
                 self.model.module.freeze_encoder(False)
 
                 # Ensure new params have no momentum
