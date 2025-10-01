@@ -11,6 +11,8 @@ class RespModel(nn.Module):
 
         resnet34 = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
 
+        self.frozen = False
+
         self.encoder = nn.ModuleList(
             [
                 nn.Sequential(
@@ -75,7 +77,24 @@ class RespModel(nn.Module):
 
         return x
 
+    def train(self, mode: bool = True):
+        self.training = mode
+
+        self.encoder.train(mode)
+        self.bottleneck.train(mode)
+
+        self.decoder.train(mode and not self.frozen)
+
+    def eval(self):
+        self.training = False
+
+        self.encoder.eval()
+        self.bottleneck.eval()
+        self.decoder.eval()
+
     def freeze_encoder(self, freeze: bool = True):
+        self.frozen = freeze
+
         for param in self.encoder_params:
             param.requires_grad = not freeze
 
