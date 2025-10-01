@@ -10,7 +10,7 @@ class PerceptualLoss(nn.Module):
     def __init__(self):
         super(PerceptualLoss, self).__init__()
 
-        self.vgg16 = models.vgg16(pretrained=True).features
+        self.vgg16 = models.vgg16(weights=models.VGG16_Weights.DEFAULT).features
         self.vgg16.eval()
 
         for param in self.vgg16.parameters():

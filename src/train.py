@@ -55,7 +55,7 @@ class Trainer:
 
             pred = self.model.forward(input)
 
-            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.2
+            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.05
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
@@ -148,10 +148,8 @@ def load_dataset(dataset, rank, world_size):
         grey = chunk[:, :1] / 3.0
         rgb = chunk[:, 1:] / 255.0
 
-        lab = (
-            rgb_to_lab(rgb.movedim(0, 1).reshape(3, -1))
-            .view(3, -1, 112, 128)
-            .movedim(0, 1)
+        lab = torch.vmap(rgb_to_lab)(rgb.view(rgb.shape[0], 3, -1)).view(
+            rgb.shape[0], 3, 112, 128
         )
 
         ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
