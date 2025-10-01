@@ -121,6 +121,7 @@ class Trainer:
                     if p in self.optim.state:
                         self.optim.state[p]['exp_avg'].zero_()
                         self.optim.state[p]['exp_avg_sq'].zero_()
+                        print(f"Reset momentum for {p}")
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:
                 self.checkpoint()
