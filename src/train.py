@@ -170,7 +170,7 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
     model.init_weights()
     model.to(device)
 
-    model = torch.compile(model)
+    # model = torch.compile(model)
 
     model = nn.parallel.DistributedDataParallel(model, device_ids=[rank])
 

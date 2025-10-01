@@ -8,7 +8,7 @@ class RespModel(nn.Module):
     def __init__(self):
         super(RespModel, self).__init__()
 
-        self.resnet34 = models.resnet34(pretrained=True)
+        self.resnet34 = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
 
         self.encoder = nn.Sequential(
             self.resnet34.conv1,
