@@ -69,6 +69,11 @@ class RespModel(nn.Module):
 
         return x
 
+    def freeze_encoder(self, freeze: bool = True):
+        for layer in [*self.encoder.modules(), *self.bottleneck.modules()]:
+            for param in layer.parameters():
+                param.requires_grad = freeze
+
     def init_weights(self):
         for layer in self.decoder.modules():
             if isinstance(layer, nn.ConvTranspose2d):

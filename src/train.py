@@ -101,9 +101,14 @@ class Trainer:
         )
 
     def train(self, epochs, train_dl, val_dl):
+        self.model.freeze_encoder()
+
         for self.epoch in range(epochs):
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
+
+            if self.epoch == 20:
+                self.model.freeze_encoder(False)
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:
                 self.checkpoint()
