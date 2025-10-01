@@ -19,12 +19,13 @@ class RespModel(nn.Module):
             resnet34.maxpool,
             resnet34.layer1,
             resnet34.layer2,
-            resnet34.layer3,
         ])
+
+        self.bottleneck = resnet34.layer3
 
         self.decoder = nn.ModuleList([
             nn.Sequential(
-                nn.ConvTranspose2d(512, 128, 4, stride=2, padding=1),
+                nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
                 nn.BatchNorm2d(128),
                 nn.ReLU(),
             ),
@@ -48,6 +49,8 @@ class RespModel(nn.Module):
         for encoder in self.encoder:
             x = encoder(x)
             encodes.append(x)
+
+        x = self.bottleneck(x)
 
         for i, decoder in enumerate(self.decoder):
             x = decoder(x)
