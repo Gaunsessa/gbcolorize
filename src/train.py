@@ -55,7 +55,7 @@ class Trainer:
 
             pred = self.model.forward(input)
 
-            loss = tf.l1_loss(pred, target) + self.perceptual_loss(pred, target)
+            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target)
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)

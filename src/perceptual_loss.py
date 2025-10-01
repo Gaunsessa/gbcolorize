@@ -16,9 +16,14 @@ class PerceptualLoss(nn.Module):
         for param in self.vgg16.parameters():
             param.requires_grad = False
 
-    def forward(self, x_input, x_pred, y_input, y_pred):
-        x = torch.cat([x_input, x_pred], dim=1)
-        y = torch.cat([y_input, y_pred], dim=1)
+    def forward(self, grey, x_ab, y_ab):
+        grey[grey == 0] = 0.60
+        grey[grey == 1] = 0.83
+        grey[grey == 2] = 0.91
+        grey[grey == 3] = 0.97
+
+        x = torch.cat([grey, x_ab], dim=1)
+        y = torch.cat([grey, y_ab], dim=1)
 
         x = torch.vmap(lab_to_rgb)(x.view(x.shape[0], 3, -1)).view(x.shape[0], 3, 112, 128)
         y = torch.vmap(lab_to_rgb)(y.view(y.shape[0], 3, -1)).view(y.shape[0], 3, 112, 128)
