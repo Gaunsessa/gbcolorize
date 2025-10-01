@@ -93,7 +93,7 @@ class Trainer:
 
         torch.save(
             {
-                "model": self.model.state_dict(),
+                "model": self.model.module.state_dict(),
                 "optim": self.optim.state_dict(),
                 "epoch": self.epoch,
             },
@@ -101,14 +101,14 @@ class Trainer:
         )
 
     def train(self, epochs, train_dl, val_dl):
-        self.model.freeze_encoder()
+        self.model.module.freeze_encoder()
 
         for self.epoch in range(epochs):
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
             if self.epoch == 20:
-                self.model.freeze_encoder(False)
+                self.model.module.freeze_encoder(False)
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:
                 self.checkpoint()
