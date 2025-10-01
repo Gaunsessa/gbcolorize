@@ -28,6 +28,12 @@ class RespModel(nn.Module):
 
         self.bottleneck = resnet34.layer3
 
+        self.encoder_params = [
+            p
+            for p in [*self.encoder.parameters(), *self.bottleneck.parameters()]
+            if p.requires_grad
+        ]
+
         self.decoder = nn.ModuleList(
             [
                 nn.Sequential(
@@ -70,9 +76,8 @@ class RespModel(nn.Module):
         return x
 
     def freeze_encoder(self, freeze: bool = True):
-        for layer in [*self.encoder.modules(), *self.bottleneck.modules()]:
-            for param in layer.parameters():
-                param.requires_grad = freeze
+        for param in self.encoder_params:
+            param.requires_grad = freeze
 
     def init_weights(self):
         for layer in self.decoder.modules():

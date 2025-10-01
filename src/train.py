@@ -107,7 +107,7 @@ class Trainer:
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
-            if self.epoch == 20:
+            if self.epoch == 3:
                 self.model.module.freeze_encoder(False)
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:
