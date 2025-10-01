@@ -77,7 +77,7 @@ class RespModel(nn.Module):
 
     def freeze_encoder(self, freeze: bool = True):
         for param in self.encoder_params:
-            param.requires_grad = freeze
+            param.requires_grad = not freeze
 
     def init_weights(self):
         for layer in self.decoder.modules():
