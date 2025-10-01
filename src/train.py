@@ -49,6 +49,8 @@ class Trainer:
         self.model.train()
 
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
+            input = input.flip(-1) if torch.rand(1) < 0.5 else input
+
             pred = self.model.forward(input)
 
             loss = tf.l1_loss(pred, target)
