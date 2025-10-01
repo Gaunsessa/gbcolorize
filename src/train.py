@@ -19,6 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 from dataloader import GBColorizeDataset
 from models.conv import GBConvModel
 from models.unet import UNet
+from models.resp import RespModel
 
 from utils.color import rgb_to_lab, vlab_to_rgb
 
@@ -26,6 +27,7 @@ from utils.color import rgb_to_lab, vlab_to_rgb
 MODELS = {
     "unet": UNet,
     "conv": GBConvModel,
+    "resp": RespModel,
 }
 
 
