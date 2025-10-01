@@ -8,16 +8,16 @@ class RespModel(nn.Module):
     def __init__(self):
         super(RespModel, self).__init__()
 
-        self.resnet34 = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
+        resnet34 = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
 
         self.encoder = nn.Sequential(
-            self.resnet34.conv1,
-            self.resnet34.bn1,
-            self.resnet34.relu,
-            self.resnet34.maxpool,
-            self.resnet34.layer1,
-            self.resnet34.layer2,
-            self.resnet34.layer3,
+            resnet34.conv1,
+            resnet34.bn1,
+            resnet34.relu,
+            resnet34.maxpool,
+            resnet34.layer1,
+            resnet34.layer2,
+            resnet34.layer3,
             # resnet34.layer4,
         )
 
