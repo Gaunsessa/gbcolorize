@@ -39,17 +39,17 @@ class RespModel(nn.Module):
         self.decoder = nn.ModuleList(
             [
                 nn.Sequential(
-                    nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(128),
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(256, 64, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(256, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
@@ -81,9 +81,9 @@ class RespModel(nn.Module):
         self.training = mode
 
         self.encoder.train(mode)
-        self.bottleneck.train(mode)
 
         self.decoder.train(mode and not self.frozen)
+        self.bottleneck.train(mode and not self.frozen)
 
     def eval(self):
         self.training = False
@@ -94,6 +94,9 @@ class RespModel(nn.Module):
 
     def freeze_encoder(self, freeze: bool = True):
         self.frozen = freeze
+
+        self.encoder.train(not freeze)
+        self.bottleneck.train(not freeze)
 
         for param in self.encoder_params:
             param.requires_grad = not freeze

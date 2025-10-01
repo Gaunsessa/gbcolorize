@@ -38,7 +38,7 @@ class Trainer:
     def __init__(self, model, optim, name, device, rank):
         self.model = model
         self.optim = optim
-        self.perceptual_loss = PerceptualLoss().to(device)
+        # self.perceptual_loss = PerceptualLoss().to(device)
         self.device = device
         self.writer = SummaryWriter() if rank == 0 else None
         self.name = name
@@ -53,14 +53,16 @@ class Trainer:
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
             input = input.flip(-1) if torch.rand(1) < 0.5 else input
 
-            pred = self.model.forward(input)
+            with torch.autocast(device_type="cuda"):
+                pred = self.model.forward(input)
+                loss = tf.l1_loss(pred, target)
 
-            loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.05
+            # loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.05
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
 
-            self.optim.zero_grad()
+            self.optim.zero_grad(set_to_none=True)
             loss.backward()
             self.optim.step()
 
@@ -73,9 +75,9 @@ class Trainer:
 
         with torch.no_grad():
             for input, target in tqdm(dl, desc=f"Validation", total=len(dl), disable=self.rank != 0):
-                pred = self.model.forward(input)
-
-                loss += tf.l1_loss(pred, target)
+                with torch.autocast(device_type="cuda"):
+                    pred = self.model.forward(input)
+                    loss += tf.l1_loss(pred, target)
 
         if self.writer is not None:
             self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
@@ -111,7 +113,7 @@ class Trainer:
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
-            if self.epoch == 10:
+            if self.epoch == 40:
                 self.model.module.freeze_encoder(False)
 
                 # Ensure new params have no momentum
