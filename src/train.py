@@ -54,10 +54,10 @@ class Trainer:
             input = input.flip(-1) if torch.rand(1) < 0.5 else input
 
             with torch.autocast(device_type="cuda"):
-                pred = self.model.forward(input)
-                loss = tf.l1_loss(pred, target)
+                pred = self.model.forward(input / 3.0)
+                # loss = tf.l1_loss(pred, target)
+                loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.1
 
-            # loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.05
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
@@ -76,7 +76,7 @@ class Trainer:
         with torch.no_grad():
             for input, target in tqdm(dl, desc=f"Validation", total=len(dl), disable=self.rank != 0):
                 with torch.autocast(device_type="cuda"):
-                    pred = self.model.forward(input)
+                    pred = self.model.forward(input / 3.0)
                     loss += tf.l1_loss(pred, target)
 
         if self.writer is not None:
@@ -153,7 +153,7 @@ def load_dataset(dataset, rank, world_size):
 
         chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float32)
 
-        grey = chunk[:, :1] / 3.0
+        grey = chunk[:, :1]
         rgb = chunk[:, 1:] / 255.0
 
         lab = torch.vmap(rgb_to_lab)(rgb.view(rgb.shape[0], 3, -1)).view(
