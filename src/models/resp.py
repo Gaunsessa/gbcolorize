@@ -10,39 +10,53 @@ class RespModel(nn.Module):
 
         resnet34 = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
 
-        self.encoder = nn.Sequential(
-            resnet34.conv1,
-            resnet34.bn1,
-            resnet34.relu,
+        self.encoder = nn.ModuleList([
+            nn.Sequential(
+                resnet34.conv1,
+                resnet34.bn1,
+                resnet34.relu,
+            ),
             resnet34.maxpool,
             resnet34.layer1,
             resnet34.layer2,
             resnet34.layer3,
-            # resnet34.layer4,
-        )
+        ])
 
-        self.decoder = nn.Sequential(
-            # nn.ConvTranspose2d(512, 256, 3, stride=2, padding=0),
-            nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 64, 4, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 2, 4, stride=2, padding=1),
-        )
+        self.decoder = nn.ModuleList([
+            nn.Sequential(
+                nn.ConvTranspose2d(512, 128, 4, stride=2, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(),
+            ),
+            nn.Sequential(
+                nn.ConvTranspose2d(256, 64, 4, stride=2, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+            ),
+            nn.Sequential(
+                nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+            ),
+            nn.ConvTranspose2d(128, 2, 4, stride=2, padding=1),
+        ])
 
     def forward(self, x: TensorType["batch", 1, 112, 128]) -> TensorType["batch", 2, 112, 128]:
-        x = self.encoder(x.expand(-1, 3, -1, -1))
-        x = self.decoder(x)
+        x = x.expand(-1, 3, -1, -1)
+
+        encodes = []
+        for encoder in self.encoder:
+            x = encoder(x)
+            encodes.append(x)
+
+        for i, decoder in enumerate(self.decoder):
+            x = decoder(x)
+            x = torch.cat([x, encodes[-i - 1]], dim=1)
 
         return x
 
     def init_weights(self):
-        for layer in self.decoder:
+        for layer in self.decoder.modules():
             if isinstance(layer, nn.ConvTranspose2d):
                 nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
                 nn.init.constant_(layer.bias, 0)
