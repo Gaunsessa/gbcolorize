@@ -51,6 +51,9 @@ class Trainer:
     def forward_epoch(self, dl):
         self.model.train()
 
+        epoch_fwd_time = 0
+        epoch_bwd_time = 0
+
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
             self.optim.zero_grad(set_to_none=True)
 
@@ -82,9 +85,12 @@ class Trainer:
             torch.cuda.synchronize()
             fwd_time = start_fwd.elapsed_time(end_fwd)
             bwd_time = start_bwd.elapsed_time(end_bwd)
-            print(f"Batch forward: {fwd_time:.2f} ms | backward: {bwd_time:.2f} ms")
+            epoch_fwd_time += fwd_time
+            epoch_bwd_time += bwd_time
 
             self.steps += 1
+
+        print(f"Epoch forward: {epoch_fwd_time:.2f} ms | backward: {epoch_bwd_time:.2f} ms")
 
     def forward_validate(self, dl):
         self.model.eval()
