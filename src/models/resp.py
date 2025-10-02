@@ -44,16 +44,16 @@ class RespModel(nn.Module):
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(256, 64, 4, stride=2, padding=1, bias=False),
-                    nn.BatchNorm2d(64),
-                    nn.ReLU(),
-                ),
-                nn.Sequential(
                     nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
-                nn.ConvTranspose2d(128, 2, 4, stride=2, padding=1),
+                nn.Sequential(
+                    nn.ConvTranspose2d(64, 64, 4, stride=2, padding=1, bias=False),
+                    nn.BatchNorm2d(64),
+                    nn.ReLU(),
+                ),
+                nn.ConvTranspose2d(64, 2, 4, stride=2, padding=1),
             ]
         )
 
@@ -73,7 +73,8 @@ class RespModel(nn.Module):
             x = decoder(x)
 
             if i != len(self.decoder) - 1:
-                x = torch.cat([x, encodes[-i - 1]], dim=1)
+                # x = torch.cat([x, encodes[-i - 1]], dim=1)
+                x = x + encodes[-i - 1]
 
         return x
 
