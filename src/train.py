@@ -54,22 +54,35 @@ class Trainer:
         for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
             self.optim.zero_grad(set_to_none=True)
 
+            start_fwd = torch.cuda.Event(enable_timing=True)
+            end_fwd = torch.cuda.Event(enable_timing=True)
+            start_bwd = torch.cuda.Event(enable_timing=True)
+            end_bwd = torch.cuda.Event(enable_timing=True)
+
             flip = torch.rand(1) < 0.5
             input = input.flip(-1) if flip else input
             target = target.flip(-1) if flip else target
 
+            start_fwd.record()
             with torch.autocast(device_type="cuda"):
                 pred = self.model.forward(input / 3.0)
                 loss = tf.l1_loss(pred, target)
+            end_fwd.record()
             # loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.1
-
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/train", loss.item(), self.steps)
 
+            start_bwd.record()
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optim)
             self.scaler.update()
+            end_bwd.record()
+
+            torch.cuda.synchronize()
+            fwd_time = start_fwd.elapsed_time(end_fwd)
+            bwd_time = start_bwd.elapsed_time(end_bwd)
+            print(f"Batch forward: {fwd_time:.2f} ms | backward: {bwd_time:.2f} ms")
 
             self.steps += 1
 
