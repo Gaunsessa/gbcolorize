@@ -143,7 +143,7 @@ def cleanup_ddp():
 
 
 def load_dataset(dataset, rank, world_size):
-    ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float32)
+    ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float16)
 
     paths = sorted([
         os.path.join(dataset, path)
@@ -157,7 +157,7 @@ def load_dataset(dataset, rank, world_size):
 
         print(f"Loading {path} on rank {rank}")
 
-        chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float32)
+        chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float16)
 
         grey = chunk[:, :1]
         rgb = chunk[:, 1:] / 255.0
