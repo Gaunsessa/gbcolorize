@@ -13,6 +13,9 @@ class RespModel(nn.Module):
 
         # self.frozen = False
 
+        self.register_buffer("std", torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
+        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+
         self.encoder = nn.ModuleList(
             [
                 nn.Sequential(
@@ -61,6 +64,7 @@ class RespModel(nn.Module):
         self, x: TensorType["batch", 1, 112, 128]
     ) -> TensorType["batch", 2, 112, 128]:
         x = x.expand(-1, 3, -1, -1)
+        x = (x - self.mean) / self.std
 
         encodes = []
         for encoder in self.encoder:
