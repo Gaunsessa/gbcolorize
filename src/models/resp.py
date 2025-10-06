@@ -16,7 +16,7 @@ class RespModel(nn.Module):
         self.mean = (0.229 + 0.224 + 0.225) / 3
         self.std = (0.229 + 0.224 + 0.225) / 3
 
-        self.expand = nn.Conv2d(1, 3, 4, stride=1, padding=2)
+        self.expand = nn.Conv2d(1, 3, 5, stride=1, padding=2)
 
         self.encoder = nn.ModuleList(
             [
