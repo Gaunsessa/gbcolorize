@@ -871,4 +871,4 @@ class GBColorizeDataset(Dataset):
 
         luma = (img[0, ..., None] > dither).sum(dim=-1).to(torch.float16)
 
-        return luma.unsqueeze(0), img[1:]
+        return luma, img[1:]
