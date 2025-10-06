@@ -860,7 +860,7 @@ class GBColorizeDataset(Dataset):
         self.dithers = DITHERS.to(device)
         self.dithers = self.dithers.view(-1).repeat(3, 1)
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
-        self.dithers = self.dithers.repeat(28, 32, 1)
+        self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
     def __len__(self) -> int:
         return self.ds.shape[0]
