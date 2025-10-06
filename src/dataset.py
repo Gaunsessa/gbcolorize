@@ -18,16 +18,16 @@ def process_imgs(img_paths: list[str]) -> TensorType["batch", 3, 112, 128]:
 
     imgs = vrgb_to_lab(imgs)
 
-    imgs = luma_dither(imgs)
+    # imgs = luma_dither(imgs)
 
-    gres = greyscale_idx_img(imgs)
+    # gres = greyscale_idx_img(imgs)
 
-    imgs = vlab_to_rgb(imgs)
-    imgs = torch.round(imgs * 255)
+    # imgs = vlab_to_rgb(imgs)
+    # imgs = torch.round(imgs * 255)
 
-    imgs = torch.cat([gres, imgs], dim=1)
+    # imgs = torch.cat([gres, imgs], dim=1)
 
-    return imgs.to(torch.uint8)
+    return imgs.to(torch.float16)
 
 
 if __name__ == "__main__":
@@ -42,5 +42,5 @@ if __name__ == "__main__":
     chunks = [imgs[i : i + chunks_size] for i in range(0, len(imgs), chunks_size)]
 
     for i, chunk in tqdm(enumerate(chunks), desc="Processing chunks", total=len(chunks)):
-        chunk = process_imgs(chunk).detach().cpu().numpy().astype(np.uint8)
+        chunk = process_imgs(chunk).detach().cpu().numpy().astype(np.float16)
         np.savez_compressed(os.path.join(output_path, f"{i}.npz"), imgs=chunk)

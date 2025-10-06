@@ -157,19 +157,11 @@ def load_dataset(dataset, rank, world_size):
         print(f"Loading {path} on rank {rank}")
 
         chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float16)
-
-        grey = chunk[:, :1]
-        rgb = chunk[:, 1:] / 255.0
-
-        lab = torch.vmap(rgb_to_lab)(rgb.view(rgb.shape[0], 3, -1)).view(
-            rgb.shape[0], 3, 112, 128
-        )
-
-        ds_memory = torch.cat([ds_memory, torch.cat([grey, lab[:, 1:]], dim=1)], dim=0)
+        ds_memory = torch.cat([ds_memory, chunk], dim=0)
 
     ds_memory = ds_memory.to(f"cuda:{rank}")
 
-    return GBColorizeDataset(ds_memory)
+    return GBColorizeDataset(ds_memory, f"cuda:{rank}")
 
 
 def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
