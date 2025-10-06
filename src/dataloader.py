@@ -855,24 +855,20 @@ class GBColorizeDataset(Dataset):
     
     def __init__(self, ds: TensorType["count", 3, 112, 128], device: torch.device):
         self.ds = ds
-        self.dithers = DITHERS.to(device)
         self.device = device
+
+        self.dithers = DITHERS.to(device)
+        self.dithers = self.dithers.view(-1).repeat(3, 1)
+        self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
+        self.dithers = self.dithers.repeat(28, 32, 1)
 
     def __len__(self) -> int:
         return self.ds.shape[0]
     
     def __getitem__(self, idx) -> tuple[TensorType[1, 112, 128], TensorType[2, 112, 128]]:
         img = self.ds[idx]
-        dither = self.dithers[random.randint(0, self.dithers.shape[0] - 1)]
+        dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 
-        dither = rgb_to_lab(dither.view(-1).repeat(3, 1))[0].view(4, 4, 3)
-        dither = dither.repeat(28, 32, 1)
-
-        luma = torch.zeros_like(img[0], device=self.device, dtype=torch.float16)
-
-        luma[img[0] <= dither[:, :, 0]] = 0
-        luma[(img[0] > dither[:, :, 0]) & (img[0] <= dither[:, :, 1])] = 1
-        luma[(img[0] > dither[:, :, 1]) & (img[0] <= dither[:, :, 2])] = 2
-        luma[img[0] > dither[:, :, 2]] = 3
+        luma = (img[0, ..., None] > dither).sum(dim=-1).to(torch.float16)
 
         return luma.unsqueeze(0), img[1:]
