@@ -164,7 +164,7 @@ def load_dataset(dataset, rank, world_size):
     return GBColorizeDataset(ds_memory, f"cuda:{rank}")
 
 
-def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
+def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path):
     setup_ddp(rank, world_size)
     device = f"cuda:{rank}"
 
@@ -179,14 +179,19 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
 
     # Model
     model = MODELS[model_name]()
-    model.init_weights()
+    optim = torch.optim.AdamW(model.parameters(), lr=lr)
+
+    if checkpoint_path:
+        ckpt = torch.load(checkpoint_path, map_location="cpu")
+
+        model.load_state_dict(ckpt["model"])
+        optim.load_state_dict(ckpt["optim"])
+    else:
+        model.init_weights()
+    
     model.to(device)
 
-    # model = torch.compile(model)
-
     model = nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=True)
-
-    optim = torch.optim.AdamW(model.parameters(), lr=lr)
 
     # Train
     run_name = f"{model_name}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -198,7 +203,7 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr):
 
 if __name__ == "__main__":
     if len(sys.argv) != 6:
-        print("Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr>")
+        print("Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr> <checkpoint_path?>")
         sys.exit(1)
 
     model_name = sys.argv[1]
@@ -206,11 +211,12 @@ if __name__ == "__main__":
     epochs = int(sys.argv[3])
     batch_size = int(sys.argv[4])
     lr = float(sys.argv[5])
+    checkpoint_path = sys.argv[6] if len(sys.argv) > 6 else None
 
     world_size = torch.cuda.device_count()
     mp.spawn(
         train_ddp,
-        args=(world_size, model_name, dataset, epochs, batch_size, lr),
+        args=(world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path),
         nprocs=world_size,
         join=True,
     )
