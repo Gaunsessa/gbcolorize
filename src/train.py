@@ -182,7 +182,7 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
     optim = torch.optim.AdamW(model.parameters(), lr=lr)
 
     if checkpoint_path:
-        ckpt = torch.load(checkpoint_path, map_location="cpu")
+        ckpt = torch.load(checkpoint_path, map_location=device)
 
         model.load_state_dict(ckpt["model"])
         optim.load_state_dict(ckpt["optim"])
@@ -202,7 +202,7 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 6:
+    if len(sys.argv) not in [6, 7]:
         print("Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr> <checkpoint_path?>")
         sys.exit(1)
 
