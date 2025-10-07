@@ -179,6 +179,8 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
 
     # Model
     model = MODELS[model_name]()
+    model.to(device)
+    
     optim = torch.optim.AdamW(model.parameters(), lr=lr)
 
     if checkpoint_path:
@@ -188,8 +190,6 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
         optim.load_state_dict(ckpt["optim"])
     else:
         model.init_weights()
-    
-    model.to(device)
 
     model = nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=True)
 
