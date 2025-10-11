@@ -39,7 +39,10 @@ class Trainer:
         self.model = model
         self.optim = optim
         self.scaler = torch.GradScaler(device=device)
+
         self.perceptual_loss = PerceptualLoss().to(device)
+        self.preceptual_loss_weight = 0.0
+
         self.device = device
         self.writer = SummaryWriter() if rank == 0 else None
         self.name = name
@@ -51,7 +54,9 @@ class Trainer:
     def forward_epoch(self, dl):
         self.model.train()
 
-        for input, target in tqdm(dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0):
+        for input, target in tqdm(
+            dl, desc=f"Epoch {self.epoch}", total=len(dl), disable=self.rank != 0
+        ):
             self.optim.zero_grad(set_to_none=True)
 
             flip = torch.rand(1) < 0.5
@@ -60,11 +65,21 @@ class Trainer:
 
             with torch.autocast(device_type="cuda"):
                 pred = self.model.forward(input / 3.0)
-                # loss = tf.l1_loss(pred, target)
-                loss = tf.l1_loss(pred, target) + self.perceptual_loss(input, pred, target) * 0.1
+
+                l1_loss = tf.l1_loss(pred, target)
+                perceptual_loss = (
+                    self.perceptual_loss(input, pred, target) * self.preceptual_loss_weight
+                    if self.preceptual_loss_weight > 0.0
+                    else 0.0
+                )
+
+            loss = l1_loss + perceptual_loss
 
             if self.writer is not None:
-                self.writer.add_scalar("Loss/train", loss.item(), self.steps)
+                self.writer.add_scalar("Loss/l1", l1_loss.item(), self.steps)
+                self.writer.add_scalar(
+                    "Loss/perceptual", perceptual_loss.item(), self.steps
+                )
 
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optim)
@@ -78,7 +93,9 @@ class Trainer:
         loss = 0
 
         with torch.no_grad():
-            for input, target in tqdm(dl, desc=f"Validation", total=len(dl), disable=self.rank != 0):
+            for input, target in tqdm(
+                dl, desc=f"Validation", total=len(dl), disable=self.rank != 0
+            ):
                 with torch.autocast(device_type="cuda"):
                     pred = self.model.forward(input / 3.0)
                     loss += tf.l1_loss(pred, target)
@@ -97,7 +114,8 @@ class Trainer:
             self.writer.add_images(f"Pred Images", imgs, self.epoch)
 
     def checkpoint(self):
-        if self.rank != 0: return
+        if self.rank != 0:
+            return
 
         os.makedirs(f"ckpts/{self.name}", exist_ok=True)
 
@@ -117,15 +135,21 @@ class Trainer:
             self.forward_epoch(train_dl)
             self.forward_validate(val_dl)
 
-            if self.epoch == 100:
+            if self.epoch == 30:
+                self.preceptual_loss_weight = 0.0001
+
+            if self.epoch == 150:
                 self.model.module.freeze_encoder(False)
 
                 # Ensure new params have no momentum
                 for p in self.model.module.encoder_params:
                     if p in self.optim.state:
-                        self.optim.state[p]['exp_avg'].zero_()
-                        self.optim.state[p]['exp_avg_sq'].zero_()
+                        self.optim.state[p]["exp_avg"].zero_()
+                        self.optim.state[p]["exp_avg_sq"].zero_()
                         print(f"Reset momentum for {p}")
+
+            if self.epoch % 5 == 0 and self.preceptual_loss_weight < 0.01:
+                self.preceptual_loss_weight *= 2
 
             if self.epoch % 10 == 0 or self.epoch == epochs - 1:
                 self.checkpoint()
@@ -144,13 +168,17 @@ def cleanup_ddp():
 def load_dataset(dataset, rank, world_size):
     ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float16)
 
-    paths = sorted([
-        os.path.join(dataset, path)
-        for path in os.listdir(dataset)
-        if path.endswith(".npz")
-    ])
+    paths = sorted(
+        [
+            os.path.join(dataset, path)
+            for path in os.listdir(dataset)
+            if path.endswith(".npz")
+        ]
+    )
 
-    for i, path in tqdm(enumerate(paths), desc="Loading dataset", total=len(paths), disable=rank != 0):
+    for i, path in tqdm(
+        enumerate(paths), desc="Loading dataset", total=len(paths), disable=rank != 0
+    ):
         if i % world_size != rank:
             continue
 
@@ -164,7 +192,9 @@ def load_dataset(dataset, rank, world_size):
     return GBColorizeDataset(ds_memory, f"cuda:{rank}")
 
 
-def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path):
+def train_ddp(
+    rank, world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path
+):
     setup_ddp(rank, world_size)
     device = f"cuda:{rank}"
 
@@ -172,15 +202,13 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
     ds = load_dataset(dataset, rank, world_size)
     train_ds, val_ds = random_split(ds, [0.95, 0.05])
 
-    train_dl = DataLoader(
-        train_ds, batch_size=batch_size, shuffle=True
-    )
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     val_dl = DataLoader(val_ds, batch_size=batch_size)
 
     # Model
     model = MODELS[model_name]()
     model.to(device)
-    
+
     optim = torch.optim.AdamW(model.parameters(), lr=lr)
 
     if checkpoint_path:
@@ -191,7 +219,9 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
     else:
         model.init_weights()
 
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=True)
+    model = nn.parallel.DistributedDataParallel(
+        model, device_ids=[rank], find_unused_parameters=True
+    )
 
     # Train
     run_name = f"{model_name}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -203,7 +233,9 @@ def train_ddp(rank, world_size, model_name, dataset, epochs, batch_size, lr, che
 
 if __name__ == "__main__":
     if len(sys.argv) not in [6, 7]:
-        print("Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr> <checkpoint_path?>")
+        print(
+            "Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr> <checkpoint_path?>"
+        )
         sys.exit(1)
 
     model_name = sys.argv[1]
