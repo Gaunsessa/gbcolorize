@@ -77,9 +77,11 @@ class Trainer:
 
             if self.writer is not None:
                 self.writer.add_scalar("Loss/l1", l1_loss.item(), self.steps)
-                self.writer.add_scalar(
-                    "Loss/perceptual", perceptual_loss.item(), self.steps
-                )
+
+                if self.preceptual_loss_weight > 0.0:
+                    self.writer.add_scalar(
+                        "Loss/perceptual", perceptual_loss.item(), self.steps
+                    )
 
             self.scaler.scale(loss).backward()
             self.scaler.step(self.optim)
