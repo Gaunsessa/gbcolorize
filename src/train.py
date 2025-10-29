@@ -70,7 +70,7 @@ class Trainer:
                 pred = self.model.forward(input / 3.0)
 
                 # l1_loss = tf.l1_loss(pred, target)
-                l1_loss = tf.cross_entropy(pred, target.squeeze(1).to(torch.long))
+                l1_loss = tf.cross_entropy(pred, target.squeeze(1))
                 perceptual_loss = torch.tensor(0.0)
 
                 # perceptual_loss = (
@@ -180,7 +180,7 @@ def cleanup_ddp():
 
 def load_dataset(dataset, rank, world_size):
     luma_memory = torch.empty(0, 1, 112, 128, dtype=torch.float16)
-    color_memory = torch.empty(0, 1, 112, 128, dtype=torch.uint8)
+    color_memory = torch.empty(0, 1, 112, 128, dtype=torch.long)
 
     paths = sorted(
         [
@@ -201,7 +201,7 @@ def load_dataset(dataset, rank, world_size):
         data = np.load(path)
 
         luma = torch.tensor(data["luma"], dtype=torch.float16)
-        color = torch.tensor(data["color"], dtype=torch.uint8)
+        color = torch.tensor(data["color"], dtype=torch.long)
 
         luma_memory = torch.cat([luma_memory, luma], dim=0)
         color_memory = torch.cat([color_memory, color], dim=0)
