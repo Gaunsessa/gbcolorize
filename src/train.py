@@ -69,13 +69,16 @@ class Trainer:
             with torch.autocast(device_type="cuda"):
                 pred = self.model.forward(input / 3.0)
 
-                l1_loss = tf.l1_loss(pred, target)
-                perceptual_loss = (
-                    self.perceptual_loss(input, pred, target)
-                    * self.preceptual_loss_weight
-                    if self.preceptual_loss_weight > 0.0
-                    else torch.tensor(0.0)
-                )
+                # l1_loss = tf.l1_loss(pred, target)
+                l1_loss = tf.binary_cross_entropy_with_logits(pred, target)
+                perceptual_loss = torch.tensor(0.0)
+
+                # perceptual_loss = (
+                #     self.perceptual_loss(input, pred, target)
+                #     * self.preceptual_loss_weight
+                #     if self.preceptual_loss_weight > 0.0
+                #     else torch.tensor(0.0)
+                # )
 
             loss = l1_loss + perceptual_loss
 

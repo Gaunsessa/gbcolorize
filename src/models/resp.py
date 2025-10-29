@@ -56,7 +56,7 @@ class RespModel(nn.Module):
                     nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
-                nn.ConvTranspose2d(64, 2, 4, stride=2, padding=1),
+                nn.ConvTranspose2d(64, 256, 4, stride=2, padding=1),
             ]
         )
 
