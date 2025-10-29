@@ -120,7 +120,9 @@ class Trainer:
             input[:, 0][input[:, 0] == 2] = 0.91
             input[:, 0][input[:, 0] == 3] = 0.97
 
-            imgs = torch.cat([input, pred], dim=1)[:100]
+            pred = pred.argmax(dim=1, keepdim=True)
+
+            imgs = torch.cat([input, pred], dim=1)[:5]
             imgs = dequantize_colors(imgs, get_color_bins())
             imgs = vlab_to_rgb(imgs)
 
