@@ -99,7 +99,7 @@ class Trainer:
     def forward_validate(self, dl):
         self.model.eval()
 
-        loss = torch.tensor(0.0)
+        loss = torch.tensor(0.0, device=self.device)
 
         input = None
         pred = None
@@ -110,7 +110,7 @@ class Trainer:
             ):
                 with torch.autocast(device_type="cuda"):
                     pred = self.model.forward(input / 3.0)
-                    loss += tf.l1_loss(pred, target)
+                    loss += tf.cross_entropy(pred, target.squeeze(1))
 
         if self.writer is not None and input is not None and pred is not None:
             self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
