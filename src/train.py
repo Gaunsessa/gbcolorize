@@ -177,7 +177,7 @@ def cleanup_ddp():
 
 def load_dataset(dataset, rank, world_size):
     luma_memory = torch.empty(0, 1, 112, 128, dtype=torch.float16)
-    color_memory = torch.empty(0, 3, 112, 128, dtype=torch.uint8)
+    color_memory = torch.empty(0, 1, 112, 128, dtype=torch.uint8)
 
     paths = sorted(
         [
