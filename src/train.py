@@ -70,7 +70,7 @@ class Trainer:
                 pred = self.model.forward(input / 3.0)
 
                 # l1_loss = tf.l1_loss(pred, target)
-                l1_loss = tf.cross_entropy(pred, target.squeeze(1))
+                l1_loss = tf.cross_entropy(pred, target.squeeze(1).to(torch.long))
                 perceptual_loss = torch.tensor(0.0)
 
                 # perceptual_loss = (
