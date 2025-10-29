@@ -16,7 +16,8 @@ def process_imgs(img_paths: list[str]) -> tuple[torch.Tensor, torch.Tensor]:
 
     imgs = vrgb_to_lab(imgs)
 
-    imgs = quantize_colors(imgs, get_color_bins())
+    bins = get_color_bins()
+    imgs = quantize_colors(imgs, bins)
 
     # imgs = luma_dither(imgs)
 

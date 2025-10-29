@@ -21,7 +21,7 @@ from models.conv import GBConvModel
 from models.unet import UNet
 from models.resp import RespModel
 
-from utils.color import rgb_to_lab, vlab_to_rgb
+from utils.color import rgb_to_lab, vlab_to_rgb, dequantize_colors, get_color_bins
 from perceptual_loss import PerceptualLoss
 
 
@@ -118,6 +118,7 @@ class Trainer:
             input[:, 0][input[:, 0] == 3] = 0.97
 
             imgs = torch.cat([input, pred], dim=1)[:100]
+            imgs = dequantize_colors(imgs, get_color_bins())
             imgs = vlab_to_rgb(imgs)
 
             self.writer.add_images(f"Pred Images", imgs, self.epoch)
