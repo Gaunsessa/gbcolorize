@@ -2,11 +2,11 @@ import torch
 
 
 # Color transformations
-def nonlinear_to_linear(x: float) -> float:
+def nonlinear_to_linear(x: torch.Tensor) -> torch.Tensor:
     return torch.where(x >= 0.0031308, (1.055 * x ** (1.0 / 2.4) - 0.055), (12.92 * x))
 
 
-def linear_to_nonlinear(x: float) -> float:
+def linear_to_nonlinear(x: torch.Tensor) -> torch.Tensor:
     x = torch.clamp(x, min=0.0)
 
     return torch.where(x >= 0.04045, ((x + 0.055) / 1.055).pow(2.4), x / 12.92)
@@ -58,6 +58,36 @@ def lab_to_rgb(lab: torch.Tensor) -> torch.Tensor:
     res[2] = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
 
     return linear_to_nonlinear(res)
+
+
+def get_color_bins(steps=50, quant_lum=0.923632) -> torch.Tensor:
+    a_grid, b_grid = torch.meshgrid(
+        torch.linspace(-0.3, 0.3, steps), torch.linspace(-0.3, 0.3, steps)
+    )
+
+    lab_grid = torch.stack([torch.full_like(a_grid, quant_lum), a_grid, b_grid], dim=-1)
+    lab_grid = lab_grid.movedim(-1, 0).view(3, -1)
+
+    rgb_grid = lab_to_rgb(lab_grid)
+
+    lab_grid = lab_grid[:, ~(rgb_grid > 1).any(dim=0)]
+
+    return lab_grid[1:].movedim(0, -1)
+
+
+def quantize_colors(img: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    ab_flat = torch.stack([img[:, 1].flatten(), img[:, 2].flatten()], dim=1)
+    dists = torch.cdist(ab_flat, bins)
+
+    closest_idxs = torch.argmin(dists, dim=1, keepdim=True).view(
+        img.shape[0], img.shape[2], img.shape[3]
+    )
+
+    return torch.stack([img[:, 0], closest_idxs], dim=1)
+
+
+def dequantize_colors(img: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
+    return torch.cat([img[:, :1], bins[img[:, 1].to(torch.int)].movedim(-1, 1)], dim=1)
 
 
 # This double vmap is horrific

@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as tf
 
-from torchtyping import TensorType
-
 class ConvBlock(nn.Sequential):
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__(
@@ -19,7 +17,9 @@ class ConvBlock(nn.Sequential):
         for layer in self:
             if isinstance(layer, nn.Conv2d):
                 nn.init.kaiming_normal_(layer.weight, mode='fan_out', nonlinearity='relu')
-                nn.init.constant_(layer.bias, 0)
+
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0)
 
 
 class UNet(nn.Module):
@@ -49,7 +49,7 @@ class UNet(nn.Module):
             nn.ConvTranspose2d(16, 16, 2, stride=2),
         ])
 
-    def forward(self, x: TensorType["batch", 1, 112, 128]) -> TensorType["batch", 2, 112, 128]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         encodes = []
 
         for i, encoder in enumerate(self.encoders):

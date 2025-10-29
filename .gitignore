@@ -1,6 +1,11 @@
 old/
 datasets/
 ckpts/
+runs/
+eval/
+data/
+output/
+working/
 
 # MacOS
 .DS_Store

@@ -2,18 +2,16 @@ import torch
 import torchvision as tv
 import torchvision.transforms.functional as vf
 
-from torchtyping import TensorType
-
 from utils.color import *
 
 
-def batch_display_img(imgs: TensorType["batch", 3, -1, -1]) -> TensorType[3, -1, -1]:
+def batch_display_img(imgs: torch.Tensor) -> torch.Tensor:
     """imgs: RGB"""
 
     return tv.utils.make_grid(imgs, nrow=int(imgs.shape[0] ** 0.5))
 
 
-def tensor_to_pil(img: TensorType[3, -1, -1], scale: int = 3):
+def tensor_to_pil(img: torch.Tensor, scale: int = 3):
     """img: RGB"""
 
     # Prevent overflow
@@ -29,7 +27,7 @@ def tensor_to_pil(img: TensorType[3, -1, -1], scale: int = 3):
     return vf.to_pil_image(img)
 
 
-def read_img(path: str) -> TensorType[3, -1, -1]:
+def read_img(path: str) -> torch.Tensor:
     img = tv.io.read_image(path, mode=tv.io.ImageReadMode.RGB)
 
     # Convert to float
@@ -38,7 +36,7 @@ def read_img(path: str) -> TensorType[3, -1, -1]:
     return img
 
 
-def scale_img(img: TensorType[3, -1, -1]) -> TensorType[3, 112, 128]:
+def scale_img(img: torch.Tensor) -> torch.Tensor:
     # Square image
     sdim = min(img.shape[1:])
     img = vf.center_crop(img, [int(sdim * (112 / 128)), sdim])
@@ -49,9 +47,7 @@ def scale_img(img: TensorType[3, -1, -1]) -> TensorType[3, 112, 128]:
     return img
 
 
-def luma_dither(
-    img: TensorType["batch", 3, 112, 128],
-) -> TensorType["batch", 3, 112, 128]:
+def luma_dither(img: torch.Tensor) -> torch.Tensor:
     """img: LAB"""
 
     # Clone
@@ -88,9 +84,7 @@ def luma_dither(
     return img
 
 
-def greyscale_idx_img(
-    img: TensorType["batch", 3, 112, 128],
-) -> TensorType["batch", 1, 112, 128]:
+def greyscale_idx_img(img: torch.Tensor) -> torch.Tensor:
     """img: LAB"""
 
     # Clone

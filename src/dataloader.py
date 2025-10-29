@@ -1,12 +1,5 @@
-import os
-import numpy as np
-
 import torch
 from torch.utils.data import Dataset
-
-from torchtyping import TensorType
-
-import random
 
 from utils.color import *
 
@@ -851,10 +844,12 @@ DITHERS = (
 )
 
 class GBColorizeDataset(Dataset):
-    ds: TensorType["count", 3, 112, 128]
+    luma: torch.Tensor
+    color: torch.Tensor
     
-    def __init__(self, ds: TensorType["count", 3, 112, 128], device: torch.device):
-        self.ds = ds
+    def __init__(self, luma: torch.Tensor, color: torch.Tensor, device: torch.device):
+        self.luma = luma
+        self.color = color
         self.device = device
 
         self.dithers = DITHERS.to(device)
@@ -863,12 +858,14 @@ class GBColorizeDataset(Dataset):
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
     def __len__(self) -> int:
-        return self.ds.shape[0]
+        return self.luma.shape[0]
     
-    def __getitem__(self, idx) -> tuple[TensorType[1, 112, 128], TensorType[2, 112, 128]]:
-        img = self.ds[idx]
+    def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
+        luma = self.luma[idx]
+        color = self.color[idx]
+
         dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 
-        luma = (img[0, ..., None] > dither).sum(dim=-1).to(torch.float16)
+        luma = (luma[..., None] > dither).sum(dim=-1).to(torch.float16)
 
-        return luma, img[1:]
+        return luma, color

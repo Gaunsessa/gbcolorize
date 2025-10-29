@@ -13,7 +13,7 @@ class PerceptualLoss(nn.Module):
         vgg16 = models.vgg16(weights=models.VGG16_Weights.DEFAULT).features
 
         self.selected_layers = [3, 8, 15]
-        self.vgg16 = nn.Sequential(*list(vgg16)[:16])
+        self.vgg16 = nn.Sequential(*list(vgg16.children())[:16])
         self.vgg16.eval()
 
         for param in self.vgg16.parameters():

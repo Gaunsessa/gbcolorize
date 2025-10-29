@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-from torchtyping import TensorType
-
 
 class RespModel(nn.Module):
     def __init__(self):
@@ -62,9 +60,7 @@ class RespModel(nn.Module):
             ]
         )
 
-    def forward(
-        self, x: TensorType["batch", 1, 112, 128]
-    ) -> TensorType["batch", 2, 112, 128]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.expand((x - self.mean) / self.std)
 
         encodes = []
@@ -112,7 +108,9 @@ class RespModel(nn.Module):
                 nn.init.kaiming_normal_(
                     layer.weight, mode="fan_out", nonlinearity="relu"
                 )
-                # nn.init.constant_(layer.bias, 0)
+
+                if layer.bias is not None:
+                    nn.init.constant_(layer.bias, 0)
             elif isinstance(layer, nn.BatchNorm2d):
                 nn.init.constant_(layer.weight, 1)
                 nn.init.constant_(layer.bias, 0)

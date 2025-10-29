@@ -34,6 +34,7 @@ MODELS = {
 
 class Trainer:
     model: nn.Module
+    module: RespModel
 
     def __init__(self, model, optim, name, device, rank):
         self.model = model
@@ -50,6 +51,8 @@ class Trainer:
 
         self.epoch = 0
         self.steps = 0
+
+        self.module = self.model.module
 
     def forward_epoch(self, dl):
         self.model.train()
@@ -68,9 +71,10 @@ class Trainer:
 
                 l1_loss = tf.l1_loss(pred, target)
                 perceptual_loss = (
-                    self.perceptual_loss(input, pred, target) * self.preceptual_loss_weight
+                    self.perceptual_loss(input, pred, target)
+                    * self.preceptual_loss_weight
                     if self.preceptual_loss_weight > 0.0
-                    else 0.0
+                    else torch.tensor(0.0)
                 )
 
             loss = l1_loss + perceptual_loss
@@ -92,7 +96,10 @@ class Trainer:
     def forward_validate(self, dl):
         self.model.eval()
 
-        loss = 0
+        loss = torch.tensor(0.0)
+
+        input = None
+        pred = None
 
         with torch.no_grad():
             for input, target in tqdm(
@@ -102,7 +109,7 @@ class Trainer:
                     pred = self.model.forward(input / 3.0)
                     loss += tf.l1_loss(pred, target)
 
-        if self.writer is not None:
+        if self.writer is not None and input is not None and pred is not None:
             self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
 
             input[:, 0][input[:, 0] == 0] = 0.60
@@ -123,7 +130,7 @@ class Trainer:
 
         torch.save(
             {
-                "model": self.model.module.state_dict(),
+                "model": self.module.state_dict(),
                 "optim": self.optim.state_dict(),
                 "epoch": self.epoch,
             },
@@ -131,7 +138,7 @@ class Trainer:
         )
 
     def train(self, epochs, train_dl, val_dl):
-        self.model.module.freeze_encoder()
+        self.module.freeze_encoder()
 
         for self.epoch in range(epochs):
             self.forward_epoch(train_dl)
@@ -141,10 +148,10 @@ class Trainer:
                 self.preceptual_loss_weight = 0.0001
 
             if self.epoch == 150:
-                self.model.module.freeze_encoder(False)
+                self.module.freeze_encoder(False)
 
                 # Ensure new params have no momentum
-                for p in self.model.module.encoder_params:
+                for p in self.module.encoder_params:
                     if p in self.optim.state:
                         self.optim.state[p]["exp_avg"].zero_()
                         self.optim.state[p]["exp_avg_sq"].zero_()
@@ -168,7 +175,8 @@ def cleanup_ddp():
 
 
 def load_dataset(dataset, rank, world_size):
-    ds_memory = torch.empty(0, 3, 112, 128, dtype=torch.float16)
+    luma_memory = torch.empty(0, 1, 112, 128, dtype=torch.float16)
+    color_memory = torch.empty(0, 3, 112, 128, dtype=torch.uint8)
 
     paths = sorted(
         [
@@ -186,12 +194,18 @@ def load_dataset(dataset, rank, world_size):
 
         print(f"Loading {path} on rank {rank}")
 
-        chunk = torch.tensor(np.load(path)["imgs"], dtype=torch.float16)
-        ds_memory = torch.cat([ds_memory, chunk], dim=0)
+        data = np.load(path)
 
-    ds_memory = ds_memory.to(f"cuda:{rank}")
+        luma = torch.tensor(data["luma"], dtype=torch.float16)
+        color = torch.tensor(data["color"], dtype=torch.uint8)
 
-    return GBColorizeDataset(ds_memory, f"cuda:{rank}")
+        luma_memory = torch.cat([luma_memory, luma], dim=0)
+        color_memory = torch.cat([color_memory, color], dim=0)
+
+    luma_memory = luma_memory.to(f"cuda:{rank}")
+    color_memory = color_memory.to(f"cuda:{rank}")
+
+    return GBColorizeDataset(luma_memory, color_memory, torch.device(f"cuda:{rank}"))
 
 
 def train_ddp(
@@ -248,7 +262,7 @@ if __name__ == "__main__":
     checkpoint_path = sys.argv[6] if len(sys.argv) > 6 else None
 
     world_size = torch.cuda.device_count()
-    mp.spawn(
+    mp.spawn(  # pyright: ignore[reportPrivateImportUsage]
         train_ddp,
         args=(world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path),
         nprocs=world_size,
