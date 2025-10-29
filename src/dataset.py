@@ -17,7 +17,11 @@ def process_imgs(img_paths: list[str]) -> tuple[torch.Tensor, torch.Tensor]:
     imgs = vrgb_to_lab(imgs)
 
     bins = get_color_bins()
-    imgs = quantize_colors(imgs, bins)
+
+    res = torch.empty(imgs.shape[0], 2, imgs.shape[2], imgs.shape[3])
+    
+    for i in range(0, imgs.shape[0], 500):
+        res[i:i+500] = quantize_colors(imgs[i:i+500], bins)
 
     # imgs = luma_dither(imgs)
 
@@ -28,7 +32,7 @@ def process_imgs(img_paths: list[str]) -> tuple[torch.Tensor, torch.Tensor]:
 
     # imgs = torch.cat([gres, imgs], dim=1)
 
-    return imgs[:, :1].to(torch.float16), imgs[:, 1:].to(torch.uint8)
+    return res[:, :1].to(torch.float16), res[:, 1:].to(torch.uint8)
 
 
 if __name__ == "__main__":
