@@ -57,6 +57,7 @@ class RespModel(nn.Module):
                     nn.ReLU(),
                 ),
                 nn.ConvTranspose2d(64, 256, 4, stride=2, padding=1),
+                nn.Softmax(dim=1),
             ]
         )
 
