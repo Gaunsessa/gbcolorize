@@ -47,7 +47,7 @@ class Trainer:
         self.optim = optim
         self.scaler = torch.GradScaler(device=device)
 
-        self.bins = get_color_bins()
+        self.bins = get_color_bins().to(device)
         self.bin_weight_idx, self.bin_weight_weights = precompute_color_bins_weights(
             self.bins
         )
