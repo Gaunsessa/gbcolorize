@@ -21,7 +21,13 @@ from models.conv import GBConvModel
 from models.unet import UNet
 from models.resp import RespModel
 
-from utils.color import rgb_to_lab, vlab_to_rgb, dequantize_colors, get_color_bins
+from utils.color import (
+    rgb_to_lab,
+    vlab_to_rgb,
+    dequantize_colors,
+    get_color_bins,
+    precompute_color_bins_weights,
+)
 from perceptual_loss import PerceptualLoss
 
 
@@ -40,6 +46,11 @@ class Trainer:
         self.model = model
         self.optim = optim
         self.scaler = torch.GradScaler(device=device)
+
+        self.bins = get_color_bins()
+        self.bin_weight_idx, self.bin_weight_weights = precompute_color_bins_weights(
+            self.bins
+        )
 
         self.perceptual_loss = PerceptualLoss().to(device)
         self.preceptual_loss_weight = 0.0
@@ -69,8 +80,12 @@ class Trainer:
             with torch.autocast(device_type="cuda"):
                 pred = self.model.forward(input / 3.0)
 
-                # l1_loss = tf.l1_loss(pred, target)
-                l1_loss = tf.cross_entropy(pred, target.squeeze(1))
+                pred_idx = pred.argmax(dim=1)
+
+                weights = self.bin_weight_weights[pred_idx].movedim(-1, 1)
+
+                color_loss = (weights * pred).sum(dim=1).mean()
+
                 perceptual_loss = torch.tensor(0.0)
 
                 # perceptual_loss = (
@@ -80,10 +95,10 @@ class Trainer:
                 #     else torch.tensor(0.0)
                 # )
 
-            loss = l1_loss + perceptual_loss
+            loss = color_loss + perceptual_loss
 
             if self.writer is not None:
-                self.writer.add_scalar("Loss/l1", l1_loss.item(), self.steps)
+                self.writer.add_scalar("Loss/color", color_loss.item(), self.steps)
 
                 if self.preceptual_loss_weight > 0.0:
                     self.writer.add_scalar(
@@ -110,10 +125,13 @@ class Trainer:
             ):
                 with torch.autocast(device_type="cuda"):
                     pred = self.model.forward(input / 3.0)
-                    loss += tf.cross_entropy(pred, target.squeeze(1))
+                    # loss += tf.cross_entropy(pred, target.squeeze(1))
 
         if self.writer is not None and input is not None and pred is not None:
             self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
+
+            pred = pred[:100].to("cpu")
+            input = input[:100].to("cpu")
 
             input[:, 0][input[:, 0] == 0] = 0.60
             input[:, 0][input[:, 0] == 1] = 0.83

@@ -60,9 +60,56 @@ def lab_to_rgb(lab: torch.Tensor) -> torch.Tensor:
     return linear_to_nonlinear(res)
 
 
-def get_color_bins(steps=50, quant_lum=0.923632) -> torch.Tensor:
+def get_lab_ab_bounds() -> tuple[float, float, float, float]:
+    all_rgb = (
+        torch.stack(
+            torch.meshgrid(
+                torch.arange(256, dtype=torch.uint8),
+                torch.arange(256, dtype=torch.uint8),
+                torch.arange(256, dtype=torch.uint8),
+                indexing="ij",
+            ),
+            dim=-1,
+        )
+        .reshape(-1, 3)
+        .movedim(-1, 0)
+        / 255.0
+    )
+
+    all_lab = rgb_to_lab(all_rgb)
+
+    return (
+        all_lab[1].min().item(),
+        all_lab[1].max().item(),
+        all_lab[2].min().item(),
+        all_lab[2].max().item(),
+    )
+
+
+def diverse_k_center_clustering(
+    points: torch.Tensor, num_centers: int, start: int
+) -> torch.Tensor:
+    num_points, dim = points.shape
+
+    centers = torch.empty((num_centers, dim), device=points.device)
+    centers[0] = points[start]
+
+    min_dists = torch.full((num_points,), float("inf"), device=points.device)
+    for i in range(1, num_centers):
+        dists = ((points - centers[i - 1 : i]) ** 2).sum(dim=1)
+        min_dists = torch.minimum(min_dists, dists)
+        centers[i] = points[min_dists.argmax()]
+
+    return centers
+
+
+def get_color_bins(steps=1000, quant_lum=0.6, count=256) -> torch.Tensor:
+    a_min, a_max, b_min, b_max = get_lab_ab_bounds()
+
     a_grid, b_grid = torch.meshgrid(
-        torch.linspace(-0.3, 0.3, steps), torch.linspace(-0.3, 0.3, steps)
+        torch.linspace(a_min, a_max, steps),
+        torch.linspace(b_min, b_max, steps),
+        indexing="ij",
     )
 
     lab_grid = torch.stack([torch.full_like(a_grid, quant_lum), a_grid, b_grid], dim=-1)
@@ -70,9 +117,29 @@ def get_color_bins(steps=50, quant_lum=0.923632) -> torch.Tensor:
 
     rgb_grid = lab_to_rgb(lab_grid)
 
-    lab_grid = lab_grid[:, ~(rgb_grid > 1).any(dim=0)]
+    lab_grid = lab_grid[:, (rgb_grid > 1).sum(dim=0) <= 1]
 
-    return lab_grid[1:].movedim(0, -1)
+    bins = lab_grid[1:].movedim(0, -1)
+    bins = torch.cat([torch.zeros((1, bins.shape[1])), bins], dim=0)
+
+    bins = diverse_k_center_clustering(bins, count, 0)
+
+    return bins
+
+
+def precompute_color_bins_weights(bins: torch.Tensor, sigma: float = 0.05, k: int = 5):
+    x2 = (bins**2).sum(-1, keepdim=True)
+    y2 = (bins**2).sum(-1)
+    xy = bins @ bins.T
+    dist2 = x2 + y2 - 2 * xy
+
+    dist2 = dist2 / dist2.max(dim=-1, keepdim=True)[0]
+
+    knn_dists, knn_idx = torch.topk(dist2, k=k, largest=False)  # (Q,k)
+
+    knn_weights = torch.exp(-knn_dists / (2 * sigma**2))
+
+    return knn_idx, 1 - knn_weights
 
 
 def quantize_colors(img: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
