@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 
-from utils.color import *
+from utils.color import rgb_to_lab
 
 DITHERS = (
     torch.tensor(
