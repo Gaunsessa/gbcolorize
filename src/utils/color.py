@@ -139,7 +139,7 @@ def precompute_color_bins_weights(bins: torch.Tensor, sigma: float = 0.05, k: in
 
     knn_weights = torch.exp(-knn_dists / (2 * sigma**2))
 
-    return knn_idx, 1 - knn_weights
+    return knn_idx, knn_weights
 
 
 def quantize_colors(img: torch.Tensor, bins: torch.Tensor) -> torch.Tensor:
