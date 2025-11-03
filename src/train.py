@@ -17,7 +17,7 @@ from models.conv import GBConvModel
 from models.resp import RespModel
 from models.unet import UNet
 from perceptual_loss import PerceptualLoss
-from src.color_loss import cross_entropy_color_loss
+from color_loss import cross_entropy_color_loss
 from utils.color import (
     dequantize_colors,
     get_color_bins,
