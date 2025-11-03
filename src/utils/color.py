@@ -135,7 +135,7 @@ def precompute_color_bins_weights(bins: torch.Tensor, sigma: float = 0.05, k: in
 
     dist2 = dist2 / dist2.max(dim=-1, keepdim=True)[0]
 
-    knn_dists, knn_idx = torch.topk(dist2, k=k, largest=False)  # (Q,k)
+    knn_dists, knn_idx = torch.topk(dist2, k=k, largest=False)
 
     knn_weights = torch.exp(-knn_dists / (2 * sigma**2))
 

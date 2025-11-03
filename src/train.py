@@ -133,7 +133,7 @@ class Trainer:
 
             pred = pred.argmax(dim=1, keepdim=True)
 
-            imgs = torch.cat([input, pred], dim=1)[:5]
+            imgs = torch.cat([input, pred], dim=1)[:50]
             imgs = dequantize_colors(imgs, get_color_bins())
             imgs = vlab_to_rgb(imgs)
 
