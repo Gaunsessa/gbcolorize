@@ -47,17 +47,17 @@ class RespModel(nn.Module):
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1, bias=False),
-                    nn.BatchNorm2d(128),
+                    nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=False),
+                    nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(128, 128, 4, stride=2, padding=1, bias=False),
-                    nn.BatchNorm2d(128),
+                    nn.ConvTranspose2d(64, 64, 4, stride=2, padding=1, bias=False),
+                    nn.BatchNorm2d(64),
                     nn.ReLU(),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(128, 256, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(64, 256, 4, stride=2, padding=1),
                 ),
             ]
         )
