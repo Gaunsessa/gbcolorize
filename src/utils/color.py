@@ -60,7 +60,7 @@ def lab_to_rgb(lab: torch.Tensor) -> torch.Tensor:
     return linear_to_nonlinear(res)
 
 
-def get_lab_ab_bounds() -> tuple[float, float, float, float]:
+def get_lab_ab_bounds(quant_lum: float) -> tuple[float, float, float, float]:
     all_rgb = (
         torch.stack(
             torch.meshgrid(
@@ -77,6 +77,7 @@ def get_lab_ab_bounds() -> tuple[float, float, float, float]:
     )
 
     all_lab = rgb_to_lab(all_rgb)
+    all_lab = all_lab[:, torch.abs(all_lab[0] - quant_lum) < 0.0001]
 
     return (
         all_lab[1].min().item(),
@@ -103,8 +104,8 @@ def diverse_k_center_clustering(
     return centers
 
 
-def get_color_bins(steps=1000, quant_lum=0.6, count=256) -> torch.Tensor:
-    a_min, a_max, b_min, b_max = get_lab_ab_bounds()
+def get_color_bins(steps=1000, quant_lum=0.97, count=256) -> torch.Tensor:
+    a_min, a_max, b_min, b_max = get_lab_ab_bounds(quant_lum)
 
     a_grid, b_grid = torch.meshgrid(
         torch.linspace(a_min, a_max, steps),
@@ -123,6 +124,7 @@ def get_color_bins(steps=1000, quant_lum=0.6, count=256) -> torch.Tensor:
     bins = torch.cat([torch.zeros((1, bins.shape[1])), bins], dim=0)
 
     bins = diverse_k_center_clustering(bins, count, 0)
+    # bins = kmeans_clustering(bins, count)
 
     return bins
 
