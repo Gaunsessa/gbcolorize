@@ -1,35 +1,30 @@
 import os
 import sys
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as tf
-import torch.distributed as dist
-import torch.multiprocessing as mp
-
-import numpy as np
-
-from torch.utils.data import DataLoader, random_split
-from tqdm import tqdm
-
 from datetime import datetime
 
+import numpy as np
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.nn.functional as tf
+from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from dataloader import GBColorizeDataset
 from models.conv import GBConvModel
-from models.unet import UNet
 from models.resp import RespModel
-
+from models.unet import UNet
+from perceptual_loss import PerceptualLoss
+from src.color_loss import cross_entropy_color_loss
 from utils.color import (
-    rgb_to_lab,
-    vlab_to_rgb,
     dequantize_colors,
     get_color_bins,
     precompute_color_bins_weights,
+    rgb_to_lab,
+    vlab_to_rgb,
 )
-from perceptual_loss import PerceptualLoss
-
 
 MODELS = {
     "unet": UNet,
@@ -80,14 +75,12 @@ class Trainer:
             with torch.autocast(device_type="cuda"):
                 pred = self.model.forward(input / 3.0)
 
-                pred_idx = pred.argmax(dim=1)
-
-                weights = self.bin_weight_weights[pred_idx].movedim(-1, 1)
-
-                color_loss = (weights * pred).sum(dim=1).mean()
-
-                perceptual_loss = torch.tensor(0.0)
-
+                color_loss = cross_entropy_color_loss(
+                    pred, target, self.bin_weight_idx, self.bin_weight_weights
+                )
+                
+                perceptual_loss = torch.Tensor([0.0], device=input.device) 
+                
                 # perceptual_loss = (
                 #     self.perceptual_loss(input, pred, target)
                 #     * self.preceptual_loss_weight
