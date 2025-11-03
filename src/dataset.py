@@ -1,14 +1,13 @@
+import glob
 import os
 import sys
-import glob
+
 import numpy as np
-
 import torch
-
 from tqdm import tqdm
 
-from utils.color import *
-from utils.img import *
+from utils.color import get_color_bins, quantize_colors, vrgb_to_lab
+from utils.img import read_img, scale_img
 
 
 def process_imgs(img_paths: list[str]) -> tuple[torch.Tensor, torch.Tensor]:
@@ -19,9 +18,9 @@ def process_imgs(img_paths: list[str]) -> tuple[torch.Tensor, torch.Tensor]:
     bins = get_color_bins()
 
     res = torch.empty(imgs.shape[0], 2, imgs.shape[2], imgs.shape[3])
-    
+
     for i in range(0, imgs.shape[0], 500):
-        res[i:i+500] = quantize_colors(imgs[i:i+500], bins)
+        res[i : i + 500] = quantize_colors(imgs[i : i + 500], bins)
 
     # imgs = luma_dither(imgs)
 

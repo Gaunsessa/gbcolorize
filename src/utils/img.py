@@ -2,7 +2,7 @@ import torch
 import torchvision as tv
 import torchvision.transforms.functional as vf
 
-from utils.color import *
+from utils.color import vlab_to_rgb
 
 
 def batch_display_img(imgs: torch.Tensor) -> torch.Tensor:
