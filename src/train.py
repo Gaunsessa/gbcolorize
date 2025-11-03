@@ -79,7 +79,7 @@ class Trainer:
                     pred, target, self.bin_weight_idx, self.bin_weight_weights
                 )
                 
-                perceptual_loss = torch.Tensor([0.0], device=input.device) 
+                perceptual_loss = torch.tensor([0.0], device=self.device) 
                 
                 # perceptual_loss = (
                 #     self.perceptual_loss(input, pred, target)
