@@ -7,7 +7,6 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch.nn as nn
-import torch.nn.functional as tf
 from torch.utils.data import DataLoader, random_split
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -22,7 +21,6 @@ from utils.color import (
     dequantize_colors,
     get_color_bins,
     precompute_color_bins_weights,
-    rgb_to_lab,
     vlab_to_rgb,
 )
 
@@ -60,7 +58,7 @@ class Trainer:
 
         self.module = self.model.module
 
-    def forward_epoch(self, dl):
+    def forward_epoch(self, dl, weights):
         self.model.train()
 
         for input, target in tqdm(
@@ -76,11 +74,11 @@ class Trainer:
                 pred = self.model.forward(input / 3.0)
 
                 color_loss = cross_entropy_color_loss(
-                    pred, target, self.bin_weight_idx, self.bin_weight_weights
+                    pred, target, self.bin_weight_idx, self.bin_weight_weights, weights
                 )
-                
-                perceptual_loss = torch.tensor([0.0], device=self.device) 
-                
+
+                perceptual_loss = torch.tensor([0.0], device=self.device)
+
                 # perceptual_loss = (
                 #     self.perceptual_loss(input, pred, target)
                 #     * self.preceptual_loss_weight
@@ -104,7 +102,7 @@ class Trainer:
 
             self.steps += 1
 
-    def forward_validate(self, dl):
+    def forward_validate(self, dl, weights):
         self.model.eval()
 
         loss = torch.tensor(0.0, device=self.device)
@@ -114,11 +112,18 @@ class Trainer:
 
         with torch.no_grad():
             for input, target in tqdm(
-                dl, desc=f"Validation", total=len(dl), disable=self.rank != 0
+                dl, desc="Validation", total=len(dl), disable=self.rank != 0
             ):
                 with torch.autocast(device_type="cuda"):
                     pred = self.model.forward(input / 3.0)
-                    # loss += tf.cross_entropy(pred, target.squeeze(1))
+
+                    loss += cross_entropy_color_loss(
+                        pred,
+                        target,
+                        self.bin_weight_idx,
+                        self.bin_weight_weights,
+                        weights,
+                    )
 
         if self.writer is not None and input is not None and pred is not None:
             self.writer.add_scalar("Loss/val", loss.item() / len(dl), self.epoch)
@@ -137,7 +142,7 @@ class Trainer:
             imgs = dequantize_colors(imgs, get_color_bins())
             imgs = vlab_to_rgb(imgs)
 
-            self.writer.add_images(f"Pred Images", imgs, self.epoch)
+            self.writer.add_images("Pred Images", imgs, self.epoch)
 
     def checkpoint(self):
         if self.rank != 0:
@@ -154,12 +159,12 @@ class Trainer:
             f"ckpts/{self.name}/epoch_{self.epoch}.pth",
         )
 
-    def train(self, epochs, train_dl, val_dl):
+    def train(self, epochs, train_dl, val_dl, weights):
         self.module.freeze_encoder()
 
         for self.epoch in range(epochs):
-            self.forward_epoch(train_dl)
-            self.forward_validate(val_dl)
+            self.forward_epoch(train_dl, weights)
+            self.forward_validate(val_dl, weights)
 
             if self.epoch == 30:
                 self.preceptual_loss_weight = 0.0001
@@ -233,6 +238,8 @@ def train_ddp(
 
     # Dataset
     ds = load_dataset(dataset, rank, world_size)
+    weights = torch.load(os.path.join(dataset, "bin_weights.pt"), map_location=device)
+
     train_ds, val_ds = random_split(ds, [0.95, 0.05])
 
     train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
@@ -259,7 +266,7 @@ def train_ddp(
     # Train
     run_name = f"{model_name}_{batch_size}_{lr}_{epochs}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     trainer = Trainer(model, optim, run_name, device, rank)
-    trainer.train(epochs, train_dl, val_dl)
+    trainer.train(epochs, train_dl, val_dl, weights)
 
     cleanup_ddp()
 
