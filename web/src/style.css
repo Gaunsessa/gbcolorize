@@ -1,0 +1,61 @@
+* {
+    margin: 0;
+    padding: 0;
+    font-family: "IBM Plex Mono", monospace;
+}
+
+body {
+    background-color: #FBFAF9;
+}
+
+#wrapper {
+    height: 100vh;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-content: center;
+    gap: 1em;
+}
+
+#header {
+    width: 100%;
+    text-align: center;
+    
+    font-weight: 400;
+}
+
+#input {
+    cursor: pointer;
+}
+
+.disp {
+    position: relative;
+    width: 40vh;
+    height: auto;
+    
+    border: 1px solid darkgrey;
+}
+
+.disp > canvas {
+    display: block;
+    width: 100%;
+    image-rendering: pixelated;
+}
+
+.disp > h2 {
+    position: absolute;
+    
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    z-index: -1;
+    
+    text-align: center;
+    
+    color: grey;
+    user-select: none;
+    
+    font-size: 1.5em;
+    font-weight: 300;
+}

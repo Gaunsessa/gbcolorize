@@ -1,0 +1,22 @@
+{
+    "name": "web",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "devDependencies": {
+        "@types/bun": "latest",
+        "vite": "^7.1.12"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    },
+    "dependencies": {
+        "jimp": "^1.6.0",
+        "onnxruntime-web": "^1.23.0"
+    }
+}

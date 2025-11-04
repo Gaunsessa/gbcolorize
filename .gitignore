@@ -16,3 +16,13 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Models
+*.onnx
+
+# Web
+node_modules
+dist
+.eslintcache
+.cache
+*.tsbuildinfo
