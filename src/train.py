@@ -231,14 +231,14 @@ def load_dataset(dataset, rank, world_size):
 
 
 def train_ddp(
-    rank, world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path
+    rank, world_size, model_name, dataset, epochs, batch_size, lr, weight_alpha, checkpoint_path
 ):
     setup_ddp(rank, world_size)
     device = f"cuda:{rank}"
 
     # Dataset
     ds = load_dataset(dataset, rank, world_size)
-    weights = torch.load(os.path.join(dataset, "bin_weights.pt"), map_location=device)
+    weights = torch.load(os.path.join(dataset, "bin_weights.pt"), map_location=device) ** weight_alpha
 
     train_ds, val_ds = random_split(ds, [0.95, 0.05])
 
@@ -272,9 +272,9 @@ def train_ddp(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in [6, 7]:
+    if len(sys.argv) not in [7, 8]:
         print(
-            "Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr> <checkpoint_path?>"
+            "Usage: python train.py <model> <dataset> <epochs> <batch_size> <lr> <weight_alpha> <checkpoint_path?>"
         )
         sys.exit(1)
 
@@ -283,12 +283,13 @@ if __name__ == "__main__":
     epochs = int(sys.argv[3])
     batch_size = int(sys.argv[4])
     lr = float(sys.argv[5])
-    checkpoint_path = sys.argv[6] if len(sys.argv) > 6 else None
+    weight_alpha = float(sys.argv[6])
+    checkpoint_path = sys.argv[7] if len(sys.argv) > 7 else None
 
     world_size = torch.cuda.device_count()
     mp.spawn(  # pyright: ignore[reportPrivateImportUsage]
         train_ddp,
-        args=(world_size, model_name, dataset, epochs, batch_size, lr, checkpoint_path),
+        args=(world_size, model_name, dataset, epochs, batch_size, lr, weight_alpha, checkpoint_path),
         nprocs=world_size,
         join=True,
     )
