@@ -11,10 +11,19 @@ class RespModel(nn.Module):
 
         # self.frozen = False
 
-        self.mean = (0.229 + 0.224 + 0.225) / 3
-        self.std = (0.229 + 0.224 + 0.225) / 3
-
-        self.expand = nn.Conv2d(1, 3, 5, stride=1, padding=2)
+        self.expand = nn.Sequential(
+            nn.Conv2d(1, 32, 5, stride=1, padding=2),
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(),
+            nn.Conv2d(32, 64, 5, stride=1, padding=2),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(),
+            nn.Conv2d(64, 32, 5, stride=1, padding=2),
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(),
+            nn.Conv2d(32, 3, 5, stride=1, padding=2),
+            nn.LeakyReLU(),
+        )
 
         self.encoder = nn.ModuleList(
             [
@@ -44,17 +53,17 @@ class RespModel(nn.Module):
                 nn.Sequential(
                     nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(128),
-                    nn.ReLU(),
+                    nn.LeakyReLU(),
                 ),
                 nn.Sequential(
                     nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
-                    nn.ReLU(),
+                    nn.LeakyReLU(),
                 ),
                 nn.Sequential(
                     nn.ConvTranspose2d(64, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
-                    nn.ReLU(),
+                    nn.LeakyReLU(),
                 ),
                 nn.Sequential(
                     nn.ConvTranspose2d(64, 256, 4, stride=2, padding=1),
@@ -63,7 +72,7 @@ class RespModel(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.expand((x - self.mean) / self.std)
+        x = self.expand(x)
 
         encodes = []
         for encoder in self.encoder:
