@@ -23,6 +23,6 @@ def cross_entropy_color_loss(
 
     p = torch.gather(prob, 1, idx)
 
-    loss = ((p * wts).sum(dim=1) * weights).sum()
+    loss = -((p * wts).sum(dim=1) * weights).mean()
 
     return loss
