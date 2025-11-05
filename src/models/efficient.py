@@ -9,7 +9,7 @@ class EfficientNetB3Encoder(nn.Module):
         super().__init__()
 
         model = torchvision.models.efficientnet_b3(
-            weights=torchvision.models.EfficientNet_B3_Weights.IMAGENET1K_V1
+            weights=torchvision.models.EfficientNet_B3_Weights.DEFAULT
         )
 
         self.stem = model.features[0]
@@ -57,10 +57,12 @@ class DecoderBlock(nn.Module):
         output_activation: nn.Module = nn.ReLU(),
     ):
         super().__init__()
+        
+        self.skip_reduce = nn.Conv2d(skip_channels, min(in_channels, skip_channels), kernel_size=1, bias=False)
 
         self.block1 = nn.Sequential(
             nn.Conv2d(
-                in_channels + skip_channels,
+                in_channels + min(in_channels, skip_channels),
                 out_channels,
                 kernel_size=3,
                 padding=1,
@@ -78,6 +80,8 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x, skip):
         x = tf.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=False)
+        
+        skip = self.skip_reduce(skip)
 
         x = torch.cat([x, skip], dim=1)
 
@@ -106,16 +110,16 @@ class EfficientModel(nn.Module):
         self.encoder = EfficientNetB3Encoder()
 
         self.bottle_neck = nn.Sequential(
-            nn.Conv2d(1536, 512, 4, stride=1, padding=0),
+            nn.Conv2d(1536, 512, 1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(512, 512, 1, stride=1, padding=0),
+            nn.Conv2d(512, 256, 4, stride=1, padding=0),
             nn.ReLU(),
         )
 
-        self.decode1 = DecoderBlock(512, 1536, 512)
-        self.decode2 = DecoderBlock(512, 232, 512)
-        self.decode3 = DecoderBlock(512, 96, 256)
-        self.decode4 = DecoderBlock(256, 32, 256)
+        self.decode1 = DecoderBlock(256, 1536, 256)
+        self.decode2 = DecoderBlock(256, 232, 256)
+        self.decode3 = DecoderBlock(128, 96, 128)
+        self.decode4 = DecoderBlock(128, 32, 256)
 
         self.output = DecoderBlock(256, 1, 256, output_activation=nn.Identity())
 
