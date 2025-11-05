@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as tf
 import torchvision.models as models
 
-from models.base import BaseModel
+from base import BaseModel
 
 
 class RespModel(BaseModel):

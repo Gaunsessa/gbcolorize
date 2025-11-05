@@ -5,22 +5,24 @@ import torch.nn.functional as tf
 
 from base import BaseModel
 
-class EfficientNetB3Encoder(nn.Module):
+
+class EfficientNetB0Encoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-        model = torchvision.models.efficientnet_b3(
-            weights=torchvision.models.EfficientNet_B3_Weights.DEFAULT
+        model = torchvision.models.efficientnet_b0(
+            weights=torchvision.models.EfficientNet_B0_Weights.DEFAULT
         )
 
         self.stem = model.features[0]
-        self.stage1 = model.features[1:3]
-        self.stage2 = model.features[3:5]
-        self.stage3 = model.features[5:7]
-        self.stage4 = model.features[7:10]
-        self.stage5 = model.features[10:13]
-        self.stage6 = model.features[13:17]
-        self.stage7 = model.features[17:]
+        self.stage1 = model.features[1]
+        self.stage2 = model.features[2]
+        self.stage3 = model.features[3]
+        self.stage4 = model.features[4]
+        self.stage5 = model.features[5]
+        self.stage6 = model.features[6]
+        self.stage7 = model.features[7]
+        # self.head   = model.features[8]
 
     def forward(self, x):
         skips = []
@@ -36,11 +38,14 @@ class EfficientNetB3Encoder(nn.Module):
         skips.append(x)
 
         x = self.stage4(x)
-        skips.append(x)
 
         x = self.stage5(x)
+        skips.append(x)
+
         x = self.stage6(x)
+
         x = self.stage7(x)
+        skips.append(x)
 
         return x, skips
 
@@ -58,8 +63,10 @@ class DecoderBlock(nn.Module):
         output_activation: nn.Module = nn.ReLU(),
     ):
         super().__init__()
-        
-        self.skip_reduce = nn.Conv2d(skip_channels, min(in_channels, skip_channels), kernel_size=1, bias=False)
+
+        self.skip_reduce = nn.Conv2d(
+            skip_channels, min(in_channels, skip_channels), kernel_size=1, bias=False
+        )
 
         self.block1 = nn.Sequential(
             nn.Conv2d(
@@ -81,7 +88,7 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x, skip):
         x = tf.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=False)
-        
+
         skip = self.skip_reduce(skip)
 
         x = torch.cat([x, skip], dim=1)
@@ -102,25 +109,25 @@ class DecoderBlock(nn.Module):
                 nn.init.constant_(layer.bias, 0)
 
 
-class EfficientModel(BaseModel):
+class Efficient2Model(BaseModel):
     def __init__(self):
         super().__init__()
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
 
-        self.encoder = EfficientNetB3Encoder()
+        self.encoder = EfficientNetB0Encoder()
 
         self.bottle_neck = nn.Sequential(
-            nn.Conv2d(1536, 512, 1, stride=1, padding=0),
+            nn.Conv2d(320, 256, 1, stride=1, padding=0),
             nn.ReLU(),
-            nn.Conv2d(512, 256, 4, stride=1, padding=0),
+            nn.Conv2d(256, 256, 4, stride=1, padding=0),
             nn.ReLU(),
         )
 
-        self.decode1 = DecoderBlock(256, 1536, 256)
-        self.decode2 = DecoderBlock(256, 232, 128)
-        self.decode3 = DecoderBlock(128, 96, 128)
-        self.decode4 = DecoderBlock(128, 32, 256)
+        self.decode1 = DecoderBlock(256, 112, 256)
+        self.decode2 = DecoderBlock(256, 40, 128)
+        self.decode3 = DecoderBlock(128, 24, 128)
+        self.decode4 = DecoderBlock(128, 16, 256)
 
         self.output = DecoderBlock(256, 1, 256, output_activation=nn.Identity())
 
