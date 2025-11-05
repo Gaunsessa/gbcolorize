@@ -75,7 +75,6 @@ class RespModel(nn.Module):
         x = self.bottleneck(x)
 
         for i, decoder in enumerate(self.decoder):
-            print(i)
             x = decoder(x)
 
             if i != len(self.decoder) - 1:
