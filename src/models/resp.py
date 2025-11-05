@@ -41,21 +41,21 @@ class RespModel(nn.Module):
                     nn.ConvTranspose2d(256, 128, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(128),
                     nn.LeakyReLU(),
-                    nn.ConvTranspose2d(128, 128, 4, stride=1, padding=1, bias=False),
+                    nn.ConvTranspose2d(128, 128, 3, stride=1, padding=1, bias=False),
                     nn.BatchNorm2d(128),
                 ),
                 nn.Sequential(
                     nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.LeakyReLU(),
-                    nn.ConvTranspose2d(64, 64, 4, stride=1, padding=1, bias=False),
+                    nn.ConvTranspose2d(64, 64, 3, stride=1, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                 ),
                 nn.Sequential(
                     nn.ConvTranspose2d(64, 64, 4, stride=2, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                     nn.LeakyReLU(),
-                    nn.ConvTranspose2d(64, 64, 4, stride=1, padding=1, bias=False),
+                    nn.ConvTranspose2d(64, 64, 3, stride=1, padding=1, bias=False),
                     nn.BatchNorm2d(64),
                 ),
                 nn.Sequential(
@@ -75,6 +75,7 @@ class RespModel(nn.Module):
         x = self.bottleneck(x)
 
         for i, decoder in enumerate(self.decoder):
+            print(i)
             x = decoder(x)
 
             if i != len(self.decoder) - 1:
