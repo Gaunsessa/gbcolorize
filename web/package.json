@@ -16,6 +16,7 @@
         "typescript": "^5"
     },
     "dependencies": {
+        "github-fork-ribbon-css": "^0.2.3",
         "jimp": "^1.6.0",
         "onnxruntime-web": "^1.23.0"
     }

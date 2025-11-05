@@ -4,6 +4,7 @@
     "": {
       "name": "web",
       "dependencies": {
+        "github-fork-ribbon-css": "^0.2.3",
         "jimp": "^1.6.0",
         "onnxruntime-web": "^1.23.0",
       },
@@ -232,6 +233,8 @@
     "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
     "gifwrap": ["gifwrap@0.10.1", "", { "dependencies": { "image-q": "^4.0.0", "omggif": "^1.0.10" } }, "sha512-2760b1vpJHNmLzZ/ubTtNnEx5WApN/PYWJvXvgS+tL1egTTthayFYIQQNi136FLEDcN/IyEY2EcGpIITD6eYUw=="],
+
+    "github-fork-ribbon-css": ["github-fork-ribbon-css@0.2.3", "", {}, "sha512-cmGBV4sivRwmnteSOkqMjN2cnP5/J1SU5aDCVYsBWHmDokZ/JjwGEkduCxY9IULHdCPpw1WSk5Cy8N1LF6jOEw=="],
 
     "guid-typescript": ["guid-typescript@1.0.9", "", {}, "sha512-Y8T4vYhEfwJOTbouREvG+3XDsjr8E3kIr7uf+JZ0BYloFsttiHU0WfvANVsR7TxNUJa/WpCnw/Ino/p+DeBhBQ=="],
 

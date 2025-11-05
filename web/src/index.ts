@@ -1,5 +1,6 @@
 import * as ort from 'onnxruntime-web';
 import { Jimp, ResizeStrategy } from 'jimp';
+import 'github-fork-ribbon-css/gh-fork-ribbon.css';
 
 type Image = Awaited<ReturnType<typeof Jimp.read>>;
 
