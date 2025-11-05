@@ -65,12 +65,12 @@ class DecoderBlock(nn.Module):
         super().__init__()
 
         self.skip_reduce = nn.Conv2d(
-            skip_channels, min(in_channels, skip_channels), kernel_size=1, bias=False
+            skip_channels, in_channels, kernel_size=1, bias=False
         )
 
         self.block1 = nn.Sequential(
             nn.Conv2d(
-                in_channels + min(in_channels, skip_channels),
+                in_channels,
                 out_channels,
                 kernel_size=3,
                 padding=1,
@@ -90,8 +90,10 @@ class DecoderBlock(nn.Module):
         x = tf.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=False)
 
         skip = self.skip_reduce(skip)
+        
+        x = x + skip
 
-        x = torch.cat([x, skip], dim=1)
+        # x = torch.cat([x, skip], dim=1)
 
         x = self.block1(x)
         x = self.block2(x)
