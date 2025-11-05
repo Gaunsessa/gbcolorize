@@ -43,6 +43,10 @@ class EfficientNetB3Encoder(nn.Module):
 
         return x, skips
 
+    def freeze(self, freeze: bool = True):
+        for param in self.parameters():
+            param.requires_grad = not freeze
+
 
 class DecoderBlock(nn.Module):
     def __init__(
@@ -56,14 +60,18 @@ class DecoderBlock(nn.Module):
 
         self.block1 = nn.Sequential(
             nn.Conv2d(
-                in_channels + skip_channels, out_channels, kernel_size=3, padding=1
+                in_channels + skip_channels,
+                out_channels,
+                kernel_size=3,
+                padding=1,
+                bias=False,
             ),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
         )
 
         self.block2 = nn.Sequential(
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_channels),
             output_activation,
         )
@@ -77,6 +85,16 @@ class DecoderBlock(nn.Module):
         x = self.block2(x)
 
         return x
+
+    def init_weights(self):
+        for layer in self.modules():
+            if isinstance(layer, nn.Conv2d):
+                nn.init.kaiming_normal_(
+                    layer.weight, mode="fan_out", nonlinearity="leaky_relu"
+                )
+            elif isinstance(layer, nn.BatchNorm2d):
+                nn.init.constant_(layer.weight, 1)
+                nn.init.constant_(layer.bias, 0)
 
 
 class EfficientModel(nn.Module):
@@ -116,3 +134,17 @@ class EfficientModel(nn.Module):
         x = self.output(x, input)
 
         return x
+
+    def freeze_encoder(self, freeze: bool = True):
+        self.encoder.freeze(freeze)
+
+    def init_weights(self):
+        self.expand.weight.data.fill_(1)
+        if self.expand.bias is not None:
+            self.expand.bias.data.fill_(0)
+
+        self.decode1.init_weights()
+        self.decode2.init_weights()
+        self.decode3.init_weights()
+        self.decode4.init_weights()
+        self.output.init_weights()
