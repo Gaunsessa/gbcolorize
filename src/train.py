@@ -16,6 +16,8 @@ from dataloader import GBColorizeDataset
 from perceptual_loss import PerceptualLoss
 from color_loss import cross_entropy_color_loss
 from models.base import BaseModel
+
+from utils.consts import MODELS
 from utils.color import (
     dequantize_colors,
     get_color_bins,

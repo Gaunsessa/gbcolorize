@@ -3,7 +3,7 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as tf
 
-from base import BaseModel
+from .base import BaseModel
 
 
 class EfficientNetB0Encoder(nn.Module):
@@ -60,7 +60,7 @@ class DecoderBlock(nn.Module):
         in_channels,
         skip_channels,
         out_channels,
-        output_activation: nn.Module = nn.ReLU(),
+        output_activation: nn.Module = nn.ReLU(inplace=True),
     ):
         super().__init__()
 
@@ -77,7 +77,7 @@ class DecoderBlock(nn.Module):
                 bias=False,
             ),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
         )
 
         self.block2 = nn.Sequential(
@@ -119,9 +119,9 @@ class Efficient2Model(BaseModel):
 
         self.bottle_neck = nn.Sequential(
             nn.Conv2d(320, 256, 1, stride=1, padding=0),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv2d(256, 256, 4, stride=1, padding=0),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
         )
 
         self.decode1 = DecoderBlock(256, 112, 256)
@@ -132,9 +132,9 @@ class Efficient2Model(BaseModel):
         self.output = DecoderBlock(256, 1, 256, output_activation=nn.Identity())
 
     def forward(self, input):
-        x = self.expand(input)
-
-        x, skips = self.encoder(x)
+        with torch.no_grad():
+            x = input.repeat(1, 3, 1, 1)
+            x, skips = self.encoder(x)
 
         x = self.bottle_neck(x)
 

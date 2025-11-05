@@ -3,7 +3,7 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as tf
 
-from base import BaseModel
+from .base import BaseModel
 
 class EfficientNetB3Encoder(nn.Module):
     def __init__(self):
