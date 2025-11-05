@@ -63,14 +63,10 @@ class DecoderBlock(nn.Module):
         output_activation: nn.Module = nn.ReLU(inplace=True),
     ):
         super().__init__()
-
-        self.skip_reduce = nn.Conv2d(
-            skip_channels, in_channels, kernel_size=1, bias=False
-        )
-
+        
         self.block1 = nn.Sequential(
             nn.Conv2d(
-                in_channels,
+                in_channels + skip_channels,
                 out_channels,
                 kernel_size=3,
                 padding=1,
@@ -87,13 +83,8 @@ class DecoderBlock(nn.Module):
         )
 
     def forward(self, x, skip):
-        x = tf.interpolate(x, size=skip.shape[2:], mode="nearest", align_corners=False)
-
-        skip = self.skip_reduce(skip)
-        
-        x = x + skip
-
-        # x = torch.cat([x, skip], dim=1)
+        x = tf.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=False)
+        x = torch.cat([x, skip], dim=1)
 
         x = self.block1(x)
         x = self.block2(x)
@@ -126,12 +117,12 @@ class Efficient2Model(BaseModel):
             nn.ReLU(inplace=True),
         )
 
-        self.decode1 = DecoderBlock(256, 112, 256)
-        self.decode2 = DecoderBlock(256, 40, 128)
-        self.decode3 = DecoderBlock(128, 24, 128)
-        self.decode4 = DecoderBlock(128, 16, 256)
+        self.decode1 = DecoderBlock(256, 112, 128)
+        self.decode2 = DecoderBlock(128, 40, 64)
+        self.decode3 = DecoderBlock(64, 24, 32)
+        self.decode4 = DecoderBlock(32, 16, 16)
 
-        self.output = DecoderBlock(256, 1, 256, output_activation=nn.Identity())
+        self.output = DecoderBlock(16, 1, 256, output_activation=nn.Identity())
 
     def forward(self, input):
         with torch.no_grad():
