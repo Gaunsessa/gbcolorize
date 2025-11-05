@@ -2,10 +2,9 @@ import sys
 import torch
 import torch.nn as nn
 
-from models.resp import RespModel
-
 from utils.color import get_color_bins, lab_to_rgb
 
+from utils.consts import MODELS
 
 class Pipeline(nn.Module):
     def __init__(self, model, bins):
@@ -36,14 +35,15 @@ class Pipeline(nn.Module):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print("Usage: python onnx.py <ckpt_path> <onnx_dest>")
+    if len(sys.argv) != 4:
+        print("Usage: python onnx.py <model> <ckpt_path> <onnx_dest>")
         sys.exit(1)
 
-    ckpt = torch.load(sys.argv[1], map_location="cpu")
-    onnx_dest = sys.argv[2]
+    model = sys.argv[1]
+    ckpt = torch.load(sys.argv[2], map_location="cpu")
+    onnx_dest = sys.argv[3]
 
-    model = RespModel()
+    model = MODELS[model]()
     model.load_state_dict(ckpt["model"])
 
     pipeline = Pipeline(model, get_color_bins())

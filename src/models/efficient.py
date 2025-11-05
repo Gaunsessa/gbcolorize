@@ -3,6 +3,7 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as tf
 
+from models.base import BaseModel
 
 class EfficientNetB3Encoder(nn.Module):
     def __init__(self):
@@ -101,7 +102,7 @@ class DecoderBlock(nn.Module):
                 nn.init.constant_(layer.bias, 0)
 
 
-class EfficientModel(nn.Module):
+class EfficientModel(BaseModel):
     def __init__(self):
         super().__init__()
 

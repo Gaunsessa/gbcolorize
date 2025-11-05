@@ -13,13 +13,9 @@ from tqdm import tqdm
 
 from dataloader import GBColorizeDataset
 
-from models.conv import GBConvModel
-from models.resp import RespModel
-from models.efficient import EfficientModel
-from models.unet import UNet
-
 from perceptual_loss import PerceptualLoss
 from color_loss import cross_entropy_color_loss
+from models.base import BaseModel
 from utils.color import (
     dequantize_colors,
     get_color_bins,
@@ -27,17 +23,9 @@ from utils.color import (
     vlab_to_rgb,
 )
 
-MODELS = {
-    "unet": UNet,
-    "conv": GBConvModel,
-    "resp": RespModel,
-    "eff": EfficientModel,
-}
-
-
 class Trainer:
     model: nn.Module
-    module: RespModel
+    module: BaseModel
 
     def __init__(self, model, optim, name, device, rank):
         self.model = model
@@ -177,11 +165,11 @@ class Trainer:
                 self.module.freeze_encoder(False)
 
                 # Ensure new params have no momentum
-                for p in self.module.encoder_params:
-                    if p in self.optim.state:
-                        self.optim.state[p]["exp_avg"].zero_()
-                        self.optim.state[p]["exp_avg_sq"].zero_()
-                        print(f"Reset momentum for {p}")
+                # for p in self.module.encoder_params:
+                #     if p in self.optim.state:
+                #         self.optim.state[p]["exp_avg"].zero_()
+                #         self.optim.state[p]["exp_avg_sq"].zero_()
+                #         print(f"Reset momentum for {p}")
 
             if self.epoch % 5 == 0 and self.preceptual_loss_weight < 0.01:
                 self.preceptual_loss_weight *= 2

@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as tf
 import torchvision.models as models
 
+from models.base import BaseModel
 
-class RespModel(nn.Module):
+
+class RespModel(BaseModel):
     def __init__(self):
         super(RespModel, self).__init__()
 
