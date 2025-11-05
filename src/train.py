@@ -12,9 +12,12 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from dataloader import GBColorizeDataset
+
 from models.conv import GBConvModel
 from models.resp import RespModel
+from models.efficient import EfficientModel
 from models.unet import UNet
+
 from perceptual_loss import PerceptualLoss
 from color_loss import cross_entropy_color_loss
 from utils.color import (
@@ -28,6 +31,7 @@ MODELS = {
     "unet": UNet,
     "conv": GBConvModel,
     "resp": RespModel,
+    "eff": EfficientModel,
 }
 
 
