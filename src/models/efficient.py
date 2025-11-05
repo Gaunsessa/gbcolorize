@@ -117,7 +117,7 @@ class EfficientModel(nn.Module):
         )
 
         self.decode1 = DecoderBlock(256, 1536, 256)
-        self.decode2 = DecoderBlock(256, 232, 256)
+        self.decode2 = DecoderBlock(256, 232, 128)
         self.decode3 = DecoderBlock(128, 96, 128)
         self.decode4 = DecoderBlock(128, 32, 256)
 
