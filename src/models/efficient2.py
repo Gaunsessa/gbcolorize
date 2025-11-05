@@ -89,9 +89,9 @@ class DecoderBlock(nn.Module):
     def forward(self, x, skip):
         x = tf.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=False)
 
-        skip = self.skip_reduce(skip)
+        # skip = self.skip_reduce(skip)
         
-        x = x + skip
+        # x = x + skip
 
         # x = torch.cat([x, skip], dim=1)
 
