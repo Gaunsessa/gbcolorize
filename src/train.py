@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from lightning import Trainer
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.strategies import DDPStrategy
 
 from dataloader import GBColorizeDataset
 from color_loss import ColorLoss
@@ -63,6 +64,6 @@ if __name__ == "__main__":
     )
 
     logger = TensorBoardLogger(save_dir="runs")
-    trainer = Trainer(logger=logger)
+    trainer = Trainer(logger=logger, strategy=DDPStrategy(find_unused_parameters=True))
     
     trainer.fit(model=model, train_dataloaders=dataloader)
