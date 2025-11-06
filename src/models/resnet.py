@@ -1,35 +1,36 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as tf
-import torchvision.models as models
 
-from .base import BaseModel
+from torchvision.models import resnet34, ResNet34_Weights
+
+from lightning import LightningModule
 
 
-class RespModel(BaseModel):
-    def __init__(self):
-        super(RespModel, self).__init__()
+class ResnetModel(LightningModule):
+    def __init__(self, output_features: int, loss_fn: torch.nn.Module, lr: float):
+        super().__init__()
 
-        resnet34 = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
+        resnet = resnet34(weights=ResNet34_Weights.DEFAULT)
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1)
 
         self.encoder = nn.ModuleList(
             [
                 nn.Sequential(
-                    resnet34.conv1,
-                    resnet34.bn1,
-                    resnet34.relu,
+                    resnet.conv1,
+                    resnet.bn1,
+                    resnet.relu,
                 ),
                 nn.Sequential(
-                    resnet34.maxpool,
-                    resnet34.layer1,
+                    resnet.maxpool,
+                    resnet.layer1,
                 ),
-                resnet34.layer2,
+                resnet.layer2,
             ]
         )
 
-        self.bottleneck = resnet34.layer3
+        self.bottleneck = resnet.layer3
 
         self.encoder_params = [
             p
@@ -61,10 +62,13 @@ class RespModel(BaseModel):
                     nn.BatchNorm2d(64),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(64, 256, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(64, output_features, 4, stride=2, padding=1),
                 ),
             ]
         )
+
+        self.loss_fn = loss_fn
+        self.lr = lr
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.expand(x)
@@ -93,7 +97,7 @@ class RespModel(BaseModel):
         self.expand.weight.data.fill_(1)
         if self.expand.bias is not None:
             self.expand.bias.data.fill_(0)
-        
+
         for layer in self.decoder.modules():
             if isinstance(layer, nn.ConvTranspose2d):
                 nn.init.kaiming_normal_(
@@ -105,3 +109,17 @@ class RespModel(BaseModel):
             elif isinstance(layer, nn.BatchNorm2d):
                 nn.init.constant_(layer.weight, 1)
                 nn.init.constant_(layer.bias, 0)
+
+    # Training
+    def training_step(self, batch, batch_idx):
+        input, target = batch
+
+        pred = self.forward(input / 3.0)
+
+        loss = self.loss_fn(pred, target)
+        self.log("train_loss", loss)
+
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.AdamW(self.parameters(), lr=self.lr)
