@@ -48,16 +48,11 @@ class GBColorizeDataModule(LightningDataModule):
     def __init__(self, dataset_path: str, batch_size=64, num_workers=4):
         super().__init__()
         
-        self.dataset_path = dataset_path
+        self.luma, self.color = load_dataset(dataset_path)
+        self.dataset = GBColorizeDataset(self.luma, self.color)
 
         self.batch_size = batch_size
         self.num_workers = num_workers
-
-    # def setup(self, stage=None):
-        
-    def prepare_data(self):
-        self.luma, self.color = load_dataset(self.dataset_path)
-        self.dataset = GBColorizeDataset(self.luma, self.color)
 
     def train_dataloader(self):
         return DataLoader(
@@ -87,6 +82,6 @@ if __name__ == "__main__":
     datamodule = GBColorizeDataModule(args.dataset)
 
     logger = TensorBoardLogger(save_dir="runs")
-    trainer = Trainer(logger=logger, strategy=DDPStrategy(find_unused_parameters=True))
+    trainer = Trainer(logger=logger, strategy=DDPStrategy(find_unused_parameters=True, start_method="spawn"))
 
     trainer.fit(model=model, datamodule=datamodule)
