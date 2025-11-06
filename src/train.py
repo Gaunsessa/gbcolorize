@@ -76,9 +76,6 @@ class GBColorizeDataModule(LightningDataModule):
         return DataLoader(
             self.val_ds,
             batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            persistent_workers=True,
-            shuffle=True,
             pin_memory=True,
         )
 
@@ -115,6 +112,7 @@ if __name__ == "__main__":
         strategy=DDPStrategy(find_unused_parameters=True, start_method="spawn"),
         precision="16-mixed",
         max_epochs=args.epochs,
+        num_sanity_val_steps=0,
     )
 
     trainer.fit(model=model, datamodule=datamodule)
