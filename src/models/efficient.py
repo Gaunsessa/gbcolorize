@@ -198,6 +198,17 @@ class EfficientModel(LightningModule):
         self.log("train_loss", loss)
 
         return loss
+        
+    def validation_step(self, batch, batch_idx):
+        input, target = batch
+
+        pred = self.forward(input / 3.0)
+
+        loss = self.loss_fn(pred, target)
+        self.log("val_loss", loss)
+        
+        if self.logger is not None:
+            self.logger.experiment.add_images()
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)

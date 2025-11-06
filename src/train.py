@@ -35,6 +35,10 @@ class GBColorizeDataModule(LightningDataModule):
         self.load_dataset(dataset_path)
         self.dataset = GBColorizeDataset(self.luma, self.color)
 
+        self.train_ds, self.val_ds = torch.utils.data.random_split(
+            self.dataset, [0.95, 0.05]
+        )
+
         self.batch_size = batch_size
         self.num_workers = num_workers
 
@@ -60,7 +64,17 @@ class GBColorizeDataModule(LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.dataset,
+            self.train_ds,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            persistent_workers=True,
+            shuffle=True,
+            pin_memory=True,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_ds,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=True,
