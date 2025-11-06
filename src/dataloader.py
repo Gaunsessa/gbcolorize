@@ -847,12 +847,11 @@ class GBColorizeDataset(Dataset):
     luma: torch.Tensor
     color: torch.Tensor
     
-    def __init__(self, luma: torch.Tensor, color: torch.Tensor, device: torch.device):
+    def __init__(self, luma: torch.Tensor, color: torch.Tensor):
         self.luma = luma
         self.color = color
-        self.device = device
 
-        self.dithers = DITHERS.to(device)
+        self.dithers = DITHERS.to(luma.device)
         self.dithers = self.dithers.view(-1).repeat(3, 1)
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
@@ -866,6 +865,6 @@ class GBColorizeDataset(Dataset):
 
         dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 
-        luma = (luma[..., None] > dither).sum(dim=-1).to(torch.float16)
+        luma = (luma[..., None] > dither).sum(dim=-1)
 
         return luma, color

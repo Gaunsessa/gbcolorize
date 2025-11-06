@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as tf
 
+from lightning import LightningModule
+
 from torchvision.models import (
     efficientnet_b0,
     EfficientNet_B0_Weights,
@@ -38,13 +40,13 @@ class EfficientNetEncoder(nn.Module):
         self.stage6 = model.features[6]
         self.stage7 = model.features[7]
         # self.head   = model.features[8]
-        
+
         self.output_features = [
-            self.stage1.out_channels,
-            self.stage2.out_channels,
-            self.stage3.out_channels,
-            self.stage5.out_channels,
-            self.stage7.out_channels,
+            self.stage1[-1].out_channels,
+            self.stage2[-1].out_channels,
+            self.stage3[-1].out_channels,
+            self.stage5[-1].out_channels,
+            self.stage7[-1].out_channels,
         ]
 
     def forward(self, x):
@@ -125,8 +127,8 @@ class DecoderBlock(nn.Module):
                 nn.init.constant_(layer.bias, 0)
 
 
-class EfficientModel(BaseModel):
-    def __init__(self, size: int, output_features: int):
+class EfficientModel(LightningModule):
+    def __init__(self, size: int, output_features: int, loss_fn: torch.nn.Module):
         super().__init__()
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
@@ -145,7 +147,11 @@ class EfficientModel(BaseModel):
         self.decode3 = DecoderBlock(64, self.encoder.output_features[1], 32)
         self.decode4 = DecoderBlock(32, self.encoder.output_features[0], 16)
 
-        self.output = DecoderBlock(16, 1, output_features, output_activation=nn.Identity())
+        self.output = DecoderBlock(
+            16, 1, output_features, output_activation=nn.Identity()
+        )
+
+        self.loss_fn = loss_fn
 
     def forward(self, input):
         with torch.no_grad():
@@ -162,6 +168,19 @@ class EfficientModel(BaseModel):
         x = self.output(x, input)
 
         return x
+
+    def training_step(self, batch, batch_idx):
+        input, target = batch
+
+        pred = self.forward(input / 3.0)
+
+        loss = self.loss_fn(pred, target)
+        self.log("train_loss", loss)
+
+        return loss
+        
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
     def freeze_encoder(self, freeze: bool = True):
         self.encoder.freeze(freeze)
