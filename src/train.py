@@ -47,13 +47,16 @@ def load_dataset(path: str):
 class GBColorizeDataModule(LightningDataModule):
     def __init__(self, dataset_path: str, batch_size=64, num_workers=4):
         super().__init__()
-        self.luma, self.color = load_dataset(dataset_path)
+        
+        self.dataset_path = dataset_path
 
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-    def setup(self, stage=None):
-        # Wrap shared memory tensors into your Dataset
+    # def setup(self, stage=None):
+        
+    def prepare_data(self):
+        self.luma, self.color = load_dataset(self.dataset_path)
         self.dataset = GBColorizeDataset(self.luma, self.color)
 
     def train_dataloader(self):
