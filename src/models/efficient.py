@@ -136,6 +136,7 @@ class EfficientModel(LightningModule):
         lr: float,
     ):
         super().__init__()
+        self.save_hyperparameters()
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
 

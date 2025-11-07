@@ -1,6 +1,8 @@
 import os
 import argparse
+from typing import MutableMapping
 
+from lightning.fabric.utilities.rank_zero import rank_zero_only
 import torch
 
 import numpy as np
@@ -81,6 +83,17 @@ class GBColorizeDataModule(LightningDataModule):
         )
 
 
+# https://stackoverflow.com/a/70704227
+class TBLogger(TensorBoardLogger):
+    @rank_zero_only
+    def log_metrics(self, metrics, step=None):
+        assert isinstance(metrics, MutableMapping)
+
+        metrics.pop("epoch", None)
+
+        return super().log_metrics(metrics, step)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
@@ -107,7 +120,7 @@ if __name__ == "__main__":
 
     datamodule = GBColorizeDataModule(args.dataset, batch_size=args.batch)
 
-    logger = TensorBoardLogger(save_dir="runs")
+    logger = TBLogger(save_dir="runs")
     trainer = Trainer(
         logger=logger,
         strategy=DDPStrategy(find_unused_parameters=True, start_method="spawn"),
