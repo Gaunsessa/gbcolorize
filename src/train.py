@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     datamodule = GBColorizeDataModule(args.dataset, batch_size=args.batch)
 
-    logger = TBLogger(save_dir="runs")
+    logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
         logger=logger,
         strategy=DDPStrategy(find_unused_parameters=True, start_method="spawn"),
