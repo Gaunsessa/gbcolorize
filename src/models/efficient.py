@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as tf
 
-from lightning import LightningModule
-
 from torchvision.models import (
     efficientnet_b0,
     EfficientNet_B0_Weights,
@@ -15,7 +13,7 @@ from torchvision.models import (
     EfficientNet_B3_Weights,
 )
 
-from utils.color import dequantize_colors, get_color_bins, vlab_to_rgb
+from src.models.base import BaseModel
 
 
 class EfficientNetEncoder(nn.Module):
@@ -127,7 +125,7 @@ class DecoderBlock(nn.Module):
                 nn.init.constant_(layer.bias, 0)
 
 
-class EfficientModel(LightningModule):
+class EfficientModel(BaseModel):
     def __init__(
         self,
         size: int,
@@ -135,7 +133,7 @@ class EfficientModel(LightningModule):
         loss_fn: torch.nn.Module,
         lr: float,
     ):
-        super().__init__()
+        super().__init__(output_features, loss_fn, lr)
         self.save_hyperparameters()
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
@@ -157,9 +155,6 @@ class EfficientModel(LightningModule):
         self.output = DecoderBlock(
             16, 1, output_features, output_activation=nn.Identity()
         )
-
-        self.loss_fn = loss_fn
-        self.lr = lr
 
     def forward(self, input):
         with torch.no_grad():
@@ -190,43 +185,3 @@ class EfficientModel(LightningModule):
         self.decode3.init_weights()
         self.decode4.init_weights()
         self.output.init_weights()
-
-    # Training
-    def training_step(self, batch, batch_idx):
-        input, target = batch
-
-        pred = self.forward(input / 3.0)
-
-        loss = self.loss_fn(pred, target)
-        self.log("train_loss", loss)
-
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        input, target = batch
-
-        pred = self.forward(input / 3.0)
-
-        loss = self.loss_fn(pred, target)
-        self.log("val_loss", loss)
-
-        if batch_idx == 0:
-            pred = pred[:100].cpu()
-            input = input[:100].cpu()
-
-            luma_mapping = torch.tensor([0.60, 0.83, 0.91, 0.97], device=input.device)
-            luma = luma_mapping[input]
-
-            color = pred.argmax(dim=1, keepdim=True)
-
-            imgs = torch.cat([luma, color], dim=1)
-            imgs = dequantize_colors(imgs, get_color_bins())
-            imgs = vlab_to_rgb(imgs)
-
-            # I do it like this to make pyright happy ;-;
-            getattr(self.logger, "experiment").add_images(
-                "val_images", imgs, self.current_epoch
-            )
-
-    def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.lr)

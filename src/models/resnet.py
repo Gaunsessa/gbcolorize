@@ -4,12 +4,12 @@ import torch.nn.functional as tf
 
 from torchvision.models import resnet34, ResNet34_Weights
 
-from lightning import LightningModule
+from .base import BaseModel
 
 
-class ResnetModel(LightningModule):
+class ResnetModel(BaseModel):
     def __init__(self, output_features: int, loss_fn: torch.nn.Module, lr: float):
-        super().__init__()
+        super().__init__(output_features, loss_fn, lr)
 
         resnet = resnet34(weights=ResNet34_Weights.DEFAULT)
 
@@ -67,9 +67,6 @@ class ResnetModel(LightningModule):
             ]
         )
 
-        self.loss_fn = loss_fn
-        self.lr = lr
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.expand(x)
 
@@ -109,17 +106,3 @@ class ResnetModel(LightningModule):
             elif isinstance(layer, nn.BatchNorm2d):
                 nn.init.constant_(layer.weight, 1)
                 nn.init.constant_(layer.bias, 0)
-
-    # Training
-    def training_step(self, batch, batch_idx):
-        input, target = batch
-
-        pred = self.forward(input / 3.0)
-
-        loss = self.loss_fn(pred, target)
-        self.log("train_loss", loss)
-
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.AdamW(self.parameters(), lr=self.lr)
