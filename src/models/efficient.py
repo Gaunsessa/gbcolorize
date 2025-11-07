@@ -13,7 +13,7 @@ from torchvision.models import (
     EfficientNet_B3_Weights,
 )
 
-from src.models.base import BaseModel
+from .base import BaseModel
 
 
 class EfficientNetEncoder(nn.Module):
