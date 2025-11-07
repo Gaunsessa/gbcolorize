@@ -15,6 +15,8 @@ from torchvision.models import (
     EfficientNet_B3_Weights,
 )
 
+from utils.color import dequantize_colors, get_color_bins, vlab_to_rgb
+
 
 class EfficientNetEncoder(nn.Module):
     def __init__(self, size: int):
@@ -198,7 +200,7 @@ class EfficientModel(LightningModule):
         self.log("train_loss", loss)
 
         return loss
-        
+
     def validation_step(self, batch, batch_idx):
         input, target = batch
 
@@ -206,9 +208,24 @@ class EfficientModel(LightningModule):
 
         loss = self.loss_fn(pred, target)
         self.log("val_loss", loss)
-        
-        if self.logger is not None:
-            self.logger.experiment.add_images()
+
+        if batch_idx == 0:
+            pred = pred[:100].cpu()
+            input = input[:100].cpu()
+
+            luma_mapping = torch.tensor([0.60, 0.83, 0.91, 0.97], device=input.device)
+            input[:, 0] = luma_mapping[input[:, 0]]
+
+            color = pred.argmax(dim=1, keepdim=True)
+
+            imgs = torch.cat([input, color], dim=1)
+            imgs = dequantize_colors(imgs, get_color_bins())
+            imgs = vlab_to_rgb(imgs)
+
+            # I do it like this to make pyright happy ;-;
+            getattr(self.logger, "experiment").add_images(
+                "val_images", imgs, self.current_epoch
+            )
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.lr)
