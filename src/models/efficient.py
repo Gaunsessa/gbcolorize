@@ -214,11 +214,11 @@ class EfficientModel(LightningModule):
             input = input[:100].cpu()
 
             luma_mapping = torch.tensor([0.60, 0.83, 0.91, 0.97], device=input.device)
-            input[:, 0] = luma_mapping[input[:, 0]]
+            luma = luma_mapping[input]
 
             color = pred.argmax(dim=1, keepdim=True)
 
-            imgs = torch.cat([input, color], dim=1)
+            imgs = torch.cat([luma, color], dim=1)
             imgs = dequantize_colors(imgs, get_color_bins())
             imgs = vlab_to_rgb(imgs)
 

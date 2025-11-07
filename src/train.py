@@ -77,6 +77,7 @@ class GBColorizeDataModule(LightningDataModule):
             self.val_ds,
             batch_size=self.batch_size,
             pin_memory=True,
+            num_workers=self.num_workers,
         )
 
 
