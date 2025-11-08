@@ -19,6 +19,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, required=True)
     parser.add_argument("--chunk_size", type=int, required=True)
     parser.add_argument("--workers", type=int, required=True)
+    parser.add_argument("--device", type=str, required=True)
 
     args = parser.parse_args()
 
@@ -26,8 +27,8 @@ if __name__ == "__main__":
 
     os.makedirs(os.path.join(args.output, "imgs"), exist_ok=True)
 
-    bins = get_color_bins()
-    bin_counts = torch.zeros(bins.shape[0], dtype=torch.float64)
+    bins = get_color_bins().to(args.device)
+    bin_counts = torch.zeros(bins.shape[0], dtype=torch.float64).to(args.device)
 
     chunks = [
         zip(range(i, i + args.chunk_size), imgs[i : i + args.chunk_size])
@@ -36,7 +37,7 @@ if __name__ == "__main__":
 
     def process_chunk(chunk):
         indicies, paths = zip(*chunk)
-        imgs = torch.stack([scale_img(read_img(path)) for path in paths])
+        imgs = torch.stack([scale_img(read_img(path)) for path in paths]).to(args.device)
 
         labs = vrgb_to_lab(imgs)
         labs = quantize_colors(labs, bins)
@@ -44,7 +45,7 @@ if __name__ == "__main__":
         batch_idx, batch_counts = labs[:, 1].unique(return_counts=True)
         bin_counts[batch_idx.to(torch.int)] += batch_counts
 
-        imgs = (imgs * 255).to(torch.uint8)
+        imgs = (imgs * 255).to(torch.uint8).cpu()
 
         for idx, img in zip(indicies, imgs):
             write_jpeg(img, os.path.join(args.output, f"imgs/{idx}.jpg"), quality=100)
@@ -57,4 +58,4 @@ if __name__ == "__main__":
                 pbar.update(count)
 
     bin_weights = 1 - bin_counts / len(imgs)
-    torch.save(bin_weights, os.path.join(args.output, "bin_weights.pt"))
+    torch.save(bin_weights.cpu(), os.path.join(args.output, "bin_weights.pt"))
