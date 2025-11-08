@@ -1,3 +1,4 @@
+# %%
 import os
 
 import torch
@@ -5,7 +6,7 @@ import torch
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 
-from utils.color import rgb_to_lab, quantize_colors
+from utils.color import rgb_to_lab, vrgb_to_lab, quantize_colors
 
 DITHERS = (
     torch.tensor(
@@ -863,22 +864,27 @@ class GBColorizeDataset(Dataset):
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
-    def __len__(self) -> int:
-        return len(self.imgs)
+    def collate(self, batch):
+        imgs = torch.stack(batch)
 
-    def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
-        img = read_image(self.imgs[idx])
+        imgs = imgs.to(torch.float32) / 255.0
+        imgs = vrgb_to_lab(imgs)
 
-        img = img.to(torch.float32) / 255.0
-        img = rgb_to_lab(img.view(3, -1)).view(3, 112, 128)
+        imgs = quantize_colors(imgs, self.bins)
 
-        img = quantize_colors(img.unsqueeze(0), self.bins).squeeze(0)
-
-        luma = img[:1]
-        color = img[1:]
+        luma = imgs[:, :1]
+        color = imgs[:, 1:]
 
         dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 
         luma = (luma[..., None] > dither).sum(dim=-1)
 
         return luma, color
+
+    def __len__(self) -> int:
+        return len(self.imgs)
+
+    def __getitem__(self, idx) -> torch.Tensor:
+        img = read_image(self.imgs[idx])
+
+        return img

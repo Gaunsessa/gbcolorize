@@ -31,8 +31,9 @@ class GBColorizeDataModule(LightningDataModule):
         self,
         dataset_path: str,
         bins: torch.Tensor,
-        batch_size=64,
-        num_workers=4,
+        batch_size: int,
+        num_workers: int,
+        prefetch: int,
     ):
         super().__init__()
 
@@ -44,6 +45,7 @@ class GBColorizeDataModule(LightningDataModule):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.prefetch = prefetch
 
     def train_dataloader(self):
         return DataLoader(
@@ -53,6 +55,8 @@ class GBColorizeDataModule(LightningDataModule):
             persistent_workers=True,
             shuffle=True,
             pin_memory=True,
+            collate_fn=self.dataset.collate,
+            prefetch_factor=self.prefetch,
         )
 
     def val_dataloader(self):
@@ -62,6 +66,8 @@ class GBColorizeDataModule(LightningDataModule):
             num_workers=self.num_workers,
             persistent_workers=True,
             pin_memory=True,
+            collate_fn=self.dataset.collate,
+            prefetch_factor=self.prefetch,
         )
 
 
@@ -87,6 +93,8 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, required=True)
     parser.add_argument("--epochs", type=int, required=True)
     parser.add_argument("--weight_alpha", type=float, required=False, default=1.0)
+    parser.add_argument("--workers", type=int, required=False, default=1)
+    parser.add_argument("--prefetch", type=int, required=False, default=2)
 
     args = parser.parse_args()
 
@@ -100,7 +108,9 @@ if __name__ == "__main__":
     model.init_weights()
     model.freeze_encoder()
 
-    datamodule = GBColorizeDataModule(args.dataset, bins, batch_size=args.batch)
+    datamodule = GBColorizeDataModule(
+        args.dataset, bins, args.batch, args.workers, args.prefetch
+    )
 
     logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
