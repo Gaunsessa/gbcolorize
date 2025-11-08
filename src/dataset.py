@@ -1,64 +1,60 @@
-import glob
+from concurrent.futures import ThreadPoolExecutor
 import os
-import sys
+import glob
+import argparse
 
-import numpy as np
 import torch
 from tqdm import tqdm
+
+from torchvision.io import write_jpeg
 
 from utils.color import get_color_bins, quantize_colors, vrgb_to_lab
 from utils.img import read_img, scale_img
 
 
-def process_imgs(
-    img_paths: list[str], bins: torch.Tensor
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    imgs = torch.stack([scale_img(read_img(path)) for path in img_paths])
-
-    imgs = vrgb_to_lab(imgs)
-
-    res = torch.empty(imgs.shape[0], 2, imgs.shape[2], imgs.shape[3])
-
-    for i in range(0, imgs.shape[0], 500):
-        res[i : i + 500] = quantize_colors(imgs[i : i + 500], bins)
-
-    batch_idx, batch_counts = res[:, 1].unique(return_counts=True)
-
-    return (
-        res[:, :1].to(torch.float16),
-        res[:, 1:].to(torch.uint8),
-        batch_idx,
-        batch_counts,
-    )
-
-
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python dataset.py <input_dir> <output_path> <chunk_size>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
 
-    imgs = glob.glob(os.path.join(sys.argv[1], "**", "*.jpg"), recursive=True)
-    output_path = sys.argv[2]
-    chunks_size = int(sys.argv[3])
+    parser.add_argument("--input", type=str, required=True)
+    parser.add_argument("--output", type=str, required=True)
+    parser.add_argument("--chunk_size", type=int, required=True)
+    parser.add_argument("--workers", type=int, required=True)
 
-    chunks = [imgs[i : i + chunks_size] for i in range(0, len(imgs), chunks_size)]
+    args = parser.parse_args()
+
+    imgs = glob.glob(os.path.join(args.input, "**", "*.jpg"), recursive=True)
+
+    os.makedirs(os.path.join(args.output, "imgs"), exist_ok=True)
 
     bins = get_color_bins()
-    bin_counts = torch.zeros(bins.shape[0])
+    bin_counts = torch.zeros(bins.shape[0], dtype=torch.float64)
 
-    for i, chunk in tqdm(
-        enumerate(chunks), desc="Processing chunks", total=len(chunks)
-    ):
-        luma, color, batch_idx, batch_counts = process_imgs(chunk, bins)
+    chunks = [
+        zip(range(i, i + args.chunk_size), imgs[i : i + args.chunk_size])
+        for i in range(0, len(imgs), args.chunk_size)
+    ]
 
-        bin_counts[batch_idx.to(torch.int)] += batch_counts / batch_counts.sum()
+    def process_chunk(chunk):
+        indicies, paths = zip(*chunk)
+        imgs = torch.stack([scale_img(read_img(path)) for path in paths])
 
-        luma = luma.detach().cpu().numpy().astype(np.float16)
-        color = color.detach().cpu().numpy().astype(np.uint8)
+        labs = vrgb_to_lab(imgs)
+        labs = quantize_colors(labs, bins)
 
-        np.savez_compressed(
-            os.path.join(output_path, f"{i}.npz"), luma=luma, color=color
-        )
+        batch_idx, batch_counts = labs[:, 1].unique(return_counts=True)
+        bin_counts[batch_idx.to(torch.int)] += batch_counts
 
-    bin_weights = 1 - bin_counts / len(chunks)
-    torch.save(bin_weights, os.path.join(output_path, "bin_weights.pt"))
+        imgs = (imgs * 255).to(torch.uint8)
+
+        for idx, img in zip(indicies, imgs):
+            write_jpeg(img, os.path.join(args.output, f"imgs/{idx}.jpg"), quality=100)
+            
+        return len(imgs)
+
+    with ThreadPoolExecutor(max_workers=args.workers) as exe:
+        with tqdm(total=len(imgs)) as pbar:
+            for count in exe.map(process_chunk, chunks):
+                pbar.update(count)
+
+    bin_weights = 1 - bin_counts / len(imgs)
+    torch.save(bin_weights, os.path.join(args.output, "bin_weights.pt"))

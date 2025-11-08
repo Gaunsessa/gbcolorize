@@ -1,7 +1,11 @@
+import os
+
 import torch
+
+from torchvision.io import read_image
 from torch.utils.data import Dataset
 
-from utils.color import rgb_to_lab
+from utils.color import rgb_to_lab, quantize_colors
 
 DITHERS = (
     torch.tensor(
@@ -843,25 +847,35 @@ DITHERS = (
     / 255.0
 )
 
-class GBColorizeDataset(Dataset):
-    luma: torch.Tensor
-    color: torch.Tensor
-    
-    def __init__(self, luma: torch.Tensor, color: torch.Tensor):
-        self.luma = luma
-        self.color = color
 
-        self.dithers = DITHERS.to(luma.device)
+class GBColorizeDataset(Dataset):
+    imgs: list[str]
+
+    def __init__(self, path: str, bins: torch.Tensor):
+        self.imgs = [
+            os.path.join(path, f) for f in os.listdir(path) if f.endswith(".jpg")
+        ]
+
+        self.bins = bins
+
+        self.dithers = DITHERS.to(self.bins.device)
         self.dithers = self.dithers.view(-1).repeat(3, 1)
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
     def __len__(self) -> int:
-        return self.luma.shape[0]
-    
+        return len(self.imgs)
+
     def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
-        luma = self.luma[idx]
-        color = self.color[idx]
+        img = read_image(self.imgs[idx])
+
+        img = img.to(torch.float32) / 255.0
+        img = rgb_to_lab(img.view(3, -1)).view(3, 112, 128)
+
+        img = quantize_colors(img.unsqueeze(0), self.bins).squeeze(0)
+
+        luma = img[:1]
+        color = img[1:]
 
         dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 

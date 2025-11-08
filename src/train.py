@@ -5,15 +5,11 @@ from typing import MutableMapping
 from lightning.fabric.utilities.rank_zero import rank_zero_only
 import torch
 
-import numpy as np
-
 from torch.utils.data import DataLoader
 
 from lightning import LightningDataModule, Trainer
 from lightning.pytorch.loggers import TensorBoardLogger
 from lightning.pytorch.strategies import DDPStrategy
-
-from tqdm import tqdm
 
 from dataloader import GBColorizeDataset
 from color_loss import ColorLoss
@@ -31,11 +27,16 @@ MODELS = {
 
 
 class GBColorizeDataModule(LightningDataModule):
-    def __init__(self, dataset_path: str, batch_size=64, num_workers=4):
+    def __init__(
+        self,
+        dataset_path: str,
+        bins: torch.Tensor,
+        batch_size=64,
+        num_workers=4,
+    ):
         super().__init__()
 
-        self.load_dataset(dataset_path)
-        self.dataset = GBColorizeDataset(self.luma, self.color)
+        self.dataset = GBColorizeDataset(os.path.join(dataset_path, "imgs/"), bins)
 
         self.train_ds, self.val_ds = torch.utils.data.random_split(
             self.dataset, [0.95, 0.05]
@@ -43,26 +44,6 @@ class GBColorizeDataModule(LightningDataModule):
 
         self.batch_size = batch_size
         self.num_workers = num_workers
-
-    def load_dataset(self, path: str):
-        self.luma = torch.empty(0, 1, 112, 128, dtype=torch.float16)
-        self.color = torch.empty(0, 1, 112, 128, dtype=torch.long)
-
-        paths = [
-            os.path.join(path, chunk)
-            for chunk in os.listdir(path)
-            if chunk.endswith(".npz")
-        ]
-
-        for path in tqdm(paths, desc="Loading dataset"):
-            data = np.load(path)
-            self.luma = torch.cat((self.luma, torch.tensor(data["luma"])), dim=0)
-            self.color = torch.cat(
-                (self.color, torch.tensor(data["color"], dtype=torch.long)), dim=0
-            )
-
-        self.luma.share_memory_()
-        self.color.share_memory_()
 
     def train_dataloader(self):
         return DataLoader(
@@ -119,12 +100,12 @@ if __name__ == "__main__":
     model.init_weights()
     model.freeze_encoder()
 
-    datamodule = GBColorizeDataModule(args.dataset, batch_size=args.batch)
+    datamodule = GBColorizeDataModule(args.dataset, bins, batch_size=args.batch)
 
     logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
         logger=logger,
-        strategy=DDPStrategy(find_unused_parameters=True, start_method="spawn"),
+        strategy=DDPStrategy(find_unused_parameters=True),
         precision="16-mixed",
         max_epochs=args.epochs,
         num_sanity_val_steps=0,
