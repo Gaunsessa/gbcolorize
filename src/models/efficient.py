@@ -134,7 +134,6 @@ class EfficientModel(BaseModel):
         lr: float,
     ):
         super().__init__(output_features, loss_fn, lr)
-        self.save_hyperparameters()
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
 

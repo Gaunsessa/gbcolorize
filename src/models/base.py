@@ -15,6 +15,7 @@ class BaseModel(LightningModule, ABC):
     
     def __init__(self, output_features: int, loss_fn: nn.Module, lr: float):
         super().__init__()
+        self.save_hyperparameters()
         
         self.output_features = output_features
         self.loss_fn = loss_fn

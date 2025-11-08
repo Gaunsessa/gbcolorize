@@ -4,7 +4,7 @@ import torch.nn as nn
 
 from utils.color import get_color_bins, lab_to_rgb
 
-from utils.consts import MODELS
+from train import MODELS
 
 class Pipeline(nn.Module):
     def __init__(self, model, bins):
@@ -40,11 +40,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     model = sys.argv[1]
-    ckpt = torch.load(sys.argv[2], map_location="cpu")
+    ckpt = sys.argv[2]
     onnx_dest = sys.argv[3]
 
-    model = MODELS[model]()
-    model.load_state_dict(ckpt["model"])
+    model = MODELS[model].load_from_checkpoint(ckpt)
 
     pipeline = Pipeline(model, get_color_bins())
 
