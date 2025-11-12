@@ -5,7 +5,7 @@ import webdataset as wds
 
 from typing import Literal
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, IterableDataset
 
 from lightning import LightningDataModule
 
@@ -852,6 +852,10 @@ DITHERS = (
 )
 
 
+def webdataset_length(dataset: IterableDataset) -> int:
+    return sum(1 for _ in dataset)
+
+
 class GBColorizeDataModule(LightningDataModule):
     def __init__(
         self,
@@ -870,7 +874,10 @@ class GBColorizeDataModule(LightningDataModule):
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
         self.train_dataset = self.get_pipeline(dataset, "train")
+        self.train_dataset_len = webdataset_length(self.train_dataset)
+
         self.val_dataset = self.get_pipeline(dataset, "val")
+        self.val_dataset_len = webdataset_length(self.val_dataset)
 
     def luma_dither(
         self, sample: tuple[torch.Tensor, torch.Tensor]
@@ -896,8 +903,8 @@ class GBColorizeDataModule(LightningDataModule):
             wds.decode(),
             wds.map(
                 lambda s: (
-                    torch.tensor(s["luma.npz"]["luma"], dtype=torch.long),
-                    torch.tensor(s["color.npz"]["color"], dtype=torch.float32),
+                    torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
+                    torch.tensor(s["color.npz"]["color"], dtype=torch.long),
                 )
             ),
             wds.map(self.luma_dither),
@@ -905,7 +912,7 @@ class GBColorizeDataModule(LightningDataModule):
         )
 
     def train_dataloader(self):
-        return DataLoader(
+        dl = DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
@@ -913,11 +920,17 @@ class GBColorizeDataModule(LightningDataModule):
             pin_memory=self.num_workers > 0,
         )
 
+        dl.__len__ = lambda: self.train_dataset_len
+        return dl
+
     def val_dataloader(self):
-        return DataLoader(
+        dl = DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
             pin_memory=self.num_workers > 0,
         )
+
+        dl.__len__ = lambda: self.val_dataset_len
+        return dl
