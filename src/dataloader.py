@@ -1,5 +1,6 @@
 import os
 import torch
+import tarfile
 
 import webdataset as wds
 
@@ -852,8 +853,14 @@ DITHERS = (
 )
 
 
-def webdataset_length(dataset: IterableDataset) -> int:
-    return sum(1 for _ in dataset)
+def get_sample_count(shard_files: list[str]) -> int:
+    count = 0
+
+    for shard_file in shard_files:
+        with tarfile.open(shard_file, "r") as f:
+            count += len(f.getnames())
+
+    return count
 
 
 class GBColorizeDataModule(LightningDataModule):
@@ -873,11 +880,9 @@ class GBColorizeDataModule(LightningDataModule):
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
-        self.train_dataset = self.get_pipeline(dataset, "train")
-        self.train_dataset_len = webdataset_length(self.train_dataset)
+        self.train_dataset, self.train_dataset_len = self.get_pipeline(dataset, "train")
 
-        self.val_dataset = self.get_pipeline(dataset, "val")
-        self.val_dataset_len = webdataset_length(self.val_dataset)
+        self.val_dataset, self.val_dataset_len = self.get_pipeline(dataset, "val")
 
     def luma_dither(
         self, sample: tuple[torch.Tensor, torch.Tensor]
@@ -890,25 +895,32 @@ class GBColorizeDataModule(LightningDataModule):
 
         return luma, color
 
-    def get_pipeline(self, dataset_path: str, split: Literal["train", "val"]):
+    def get_pipeline(
+        self, dataset_path: str, split: Literal["train", "val"]
+    ) -> tuple[wds.DataPipeline, int]:
         shards = [
             os.path.join(dataset_path, fname)
             for fname in os.listdir(dataset_path)
             if fname.endswith(".tar") and fname.startswith(split)
         ]
 
-        return wds.DataPipeline(
-            wds.SimpleShardList(shards),
-            wds.tarfile_to_samples(),
-            wds.decode(),
-            wds.map(
-                lambda s: (
-                    torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
-                    torch.tensor(s["color.npz"]["color"], dtype=torch.long),
-                )
+        length = get_sample_count(shards)
+
+        return (
+            wds.DataPipeline(
+                wds.SimpleShardList(shards),
+                wds.tarfile_to_samples(),
+                wds.decode(),
+                wds.map(
+                    lambda s: (
+                        torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
+                        torch.tensor(s["color.npz"]["color"], dtype=torch.long),
+                    )
+                ),
+                wds.map(self.luma_dither),
+                wds.shuffle(1000) if split == "train" else None,
             ),
-            wds.map(self.luma_dither),
-            wds.shuffle(1000) if split == "train" else None,
+            length,
         )
 
     def train_dataloader(self):
