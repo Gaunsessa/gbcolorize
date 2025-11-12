@@ -179,5 +179,5 @@ if __name__ == "__main__":
     shutil.rmtree(tmp_dir)
 
     # Save bin weights
-    bin_weights = 1 - bin_counts / len(train_samples)
+    bin_weights = 1 - bin_counts / bin_counts.sum()
     torch.save(bin_weights.cpu(), os.path.join(args.output, "bin_weights.pt"))
