@@ -1,12 +1,15 @@
-# %%
 import os
-
 import torch
 
-from torchvision.io import read_image
-from torch.utils.data import Dataset
+import webdataset as wds
 
-from utils.color import rgb_to_lab, vrgb_to_lab, quantize_colors
+from typing import Literal
+
+from torch.utils.data import DataLoader
+
+from lightning import LightningDataModule
+
+from utils.color import rgb_to_lab
 
 DITHERS = (
     torch.tensor(
@@ -849,31 +852,30 @@ DITHERS = (
 )
 
 
-class GBColorizeDataset(Dataset):
-    imgs: list[str]
+class GBColorizeDataModule(LightningDataModule):
+    def __init__(
+        self,
+        dataset: str,
+        batch_size: int,
+        num_workers: int,
+    ):
+        super().__init__()
 
-    def __init__(self, path: str, bins: torch.Tensor):
-        self.imgs = [
-            os.path.join(path, f) for f in os.listdir(path) if f.endswith(".jpg")
-        ]
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
-        self.bins = bins
-
-        self.dithers = DITHERS.to(self.bins.device)
+        self.dithers = DITHERS
         self.dithers = self.dithers.view(-1).repeat(3, 1)
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
-    def collate(self, batch):
-        imgs = torch.stack(batch)
+        self.train_dataset = self.get_pipeline(dataset, "train")
+        self.val_dataset = self.get_pipeline(dataset, "val")
 
-        imgs = imgs.to(torch.float32) / 255.0
-        imgs = vrgb_to_lab(imgs)
-
-        imgs = quantize_colors(imgs, self.bins)
-
-        luma = imgs[:, :1]
-        color = imgs[:, 1:]
+    def luma_dither(
+        self, sample: tuple[torch.Tensor, torch.Tensor]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        luma, color = sample
 
         dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 
@@ -881,10 +883,41 @@ class GBColorizeDataset(Dataset):
 
         return luma, color
 
-    def __len__(self) -> int:
-        return len(self.imgs)
+    def get_pipeline(self, dataset_path: str, split: Literal["train", "val"]):
+        shards = [
+            os.path.join(dataset_path, fname)
+            for fname in os.listdir(dataset_path)
+            if fname.endswith(".tar") and fname.startswith(split)
+        ]
 
-    def __getitem__(self, idx) -> torch.Tensor:
-        img = read_image(self.imgs[idx])
+        return wds.DataPipeline(
+            wds.SimpleShardList(shards),
+            wds.tarfile_to_samples(),
+            wds.decode(),
+            wds.map(
+                lambda s: (
+                    torch.from_numpy(s["luma.npz"]["luma"]),
+                    torch.from_numpy(s["color.npz"]["color"]),
+                )
+            ),
+            wds.map(self.luma_dither),
+            wds.shuffle(1000) if split == "train" else None,
+        )
 
-        return img
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            persistent_workers=self.num_workers > 0,
+            pin_memory=self.num_workers > 0,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            persistent_workers=self.num_workers > 0,
+            pin_memory=self.num_workers > 0,
+        )

@@ -1,17 +1,15 @@
 import os
+import torch
 import argparse
+
 from typing import MutableMapping
 
-from lightning.fabric.utilities.rank_zero import rank_zero_only
-import torch
-
-from torch.utils.data import DataLoader
-
-from lightning import LightningDataModule, Trainer
+from lightning import Trainer
 from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.utilities import rank_zero_only
 from lightning.pytorch.strategies import DDPStrategy
 
-from dataloader import GBColorizeDataset
+from dataloader import GBColorizeDataModule
 from color_loss import ColorLoss
 
 from utils.color import get_color_bins, precompute_color_bins_weights
@@ -24,51 +22,6 @@ MODELS = {
     "resnet": ResnetModel,
     "efficient": EfficientModel,
 }
-
-
-class GBColorizeDataModule(LightningDataModule):
-    def __init__(
-        self,
-        dataset_path: str,
-        bins: torch.Tensor,
-        batch_size: int,
-        num_workers: int,
-        prefetch: int,
-    ):
-        super().__init__()
-
-        self.dataset = GBColorizeDataset(os.path.join(dataset_path, "imgs/"), bins)
-
-        self.train_ds, self.val_ds = torch.utils.data.random_split(
-            self.dataset, [0.95, 0.05]
-        )
-
-        self.batch_size = batch_size
-        self.num_workers = num_workers
-        self.prefetch = prefetch
-
-    def train_dataloader(self):
-        return DataLoader(
-            self.train_ds,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            persistent_workers=True,
-            shuffle=True,
-            pin_memory=True,
-            collate_fn=self.dataset.collate,
-            prefetch_factor=self.prefetch,
-        )
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.val_ds,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            persistent_workers=True,
-            pin_memory=True,
-            collate_fn=self.dataset.collate,
-            prefetch_factor=self.prefetch,
-        )
 
 
 # https://stackoverflow.com/a/70704227
@@ -108,9 +61,7 @@ if __name__ == "__main__":
     model.init_weights()
     model.freeze_encoder()
 
-    datamodule = GBColorizeDataModule(
-        args.dataset, bins, args.batch, args.workers, args.prefetch
-    )
+    datamodule = GBColorizeDataModule(args.dataset, args.batch, args.workers)
 
     logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
