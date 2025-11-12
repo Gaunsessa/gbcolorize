@@ -896,8 +896,8 @@ class GBColorizeDataModule(LightningDataModule):
             wds.decode(),
             wds.map(
                 lambda s: (
-                    torch.from_numpy(s["luma.npz"]["luma"]),
-                    torch.from_numpy(s["color.npz"]["color"]),
+                    torch.tensor(s["luma.npz"]["luma"], dtype=torch.long),
+                    torch.tensor(s["color.npz"]["color"], dtype=torch.float32),
                 )
             ),
             wds.map(self.luma_dither),

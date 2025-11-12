@@ -47,7 +47,6 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, required=True)
     parser.add_argument("--weight_alpha", type=float, required=False, default=1.0)
     parser.add_argument("--workers", type=int, required=False, default=1)
-    parser.add_argument("--prefetch", type=int, required=False, default=2)
 
     args = parser.parse_args()
 
@@ -61,7 +60,7 @@ if __name__ == "__main__":
     model.init_weights()
     model.freeze_encoder()
 
-    datamodule = GBColorizeDataModule(args.dataset, args.batch, args.workers)
+    datamodule = GBColorizeDataModule(os.path.join(args.dataset, "data"), args.batch, args.workers)
 
     logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
