@@ -853,25 +853,36 @@ DITHERS = (
 )
 
 
-class GBColorizeDataModule(LightningDataModule):
-    def __init__(
-        self,
-        dataset: str,
-        batch_size: int,
-        num_workers: int,
-    ):
-        super().__init__()
-
-        self.batch_size = batch_size
-        self.num_workers = num_workers
+class GBColorizeDataset(IterableDataset):
+    def __init__(self, dataset_path: str, split: Literal["train", "val"]):
+        self.dataset_path = dataset_path
+        self.split = split
+        self.length = torch.load(os.path.join(dataset_path, f"{split}_length.pt"))
 
         self.dithers = DITHERS
         self.dithers = self.dithers.view(-1).repeat(3, 1)
         self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
-        self.train_dataset, self.train_dataset_len = self.get_pipeline(dataset, "train")
-        self.val_dataset, self.val_dataset_len = self.get_pipeline(dataset, "val")
+        shards = [
+            os.path.join(dataset_path, fname)
+            for fname in os.listdir(dataset_path)
+            if fname.endswith(".tar") and fname.startswith(split)
+        ]
+
+        self.pipeline = wds.DataPipeline(
+            wds.SimpleShardList(shards),
+            wds.tarfile_to_samples(),
+            wds.decode(),
+            wds.map(
+                lambda s: (
+                    torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
+                    torch.tensor(s["color.npz"]["color"], dtype=torch.long),
+                )
+            ),
+            wds.map(self.luma_dither),
+            wds.shuffle(1000) if split == "train" else None,
+        )
 
     def luma_dither(
         self, sample: tuple[torch.Tensor, torch.Tensor]
@@ -884,36 +895,30 @@ class GBColorizeDataModule(LightningDataModule):
 
         return luma, color
 
-    def get_pipeline(
-        self, dataset_path: str, split: Literal["train", "val"]
-    ) -> tuple[wds.DataPipeline, int]:
-        shards = [
-            os.path.join(dataset_path, fname)
-            for fname in os.listdir(dataset_path)
-            if fname.endswith(".tar") and fname.startswith(split)
-        ]
+    def __iter__(self):
+        return iter(self.pipeline)
 
-        length = int(torch.load(os.path.join(dataset_path, f"{split}_length.pt")).item())
+    def __len__(self):
+        return self.length
 
-        return (
-            wds.DataPipeline(
-                wds.SimpleShardList(shards),
-                wds.tarfile_to_samples(),
-                wds.decode(),
-                wds.map(
-                    lambda s: (
-                        torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
-                        torch.tensor(s["color.npz"]["color"], dtype=torch.long),
-                    )
-                ),
-                wds.map(self.luma_dither),
-                wds.shuffle(1000) if split == "train" else None,
-            ),
-            length,
-        )
+
+class GBColorizeDataModule(LightningDataModule):
+    def __init__(
+        self,
+        dataset: str,
+        batch_size: int,
+        num_workers: int,
+    ):
+        super().__init__()
+
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+        self.train_dataset = GBColorizeDataset(dataset, "train")
+        self.val_dataset = GBColorizeDataset(dataset, "val")
 
     def train_dataloader(self):
-        dl = DataLoader(
+        return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
@@ -921,17 +926,11 @@ class GBColorizeDataModule(LightningDataModule):
             pin_memory=self.num_workers > 0,
         )
 
-        dl.__len__ = lambda: self.train_dataset_len
-        return dl
-
     def val_dataloader(self):
-        dl = DataLoader(
+        return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
             pin_memory=self.num_workers > 0,
         )
-
-        dl.__len__ = lambda: self.val_dataset_len
-        return dl
