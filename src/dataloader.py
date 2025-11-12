@@ -853,16 +853,6 @@ DITHERS = (
 )
 
 
-def get_sample_count(shard_files: list[str]) -> int:
-    count = 0
-
-    for shard_file in shard_files:
-        with tarfile.open(shard_file, "r") as f:
-            count += len(f.getnames())
-
-    return count
-
-
 class GBColorizeDataModule(LightningDataModule):
     def __init__(
         self,
@@ -881,7 +871,6 @@ class GBColorizeDataModule(LightningDataModule):
         self.dithers = self.dithers.repeat(1, 28, 32, 1)
 
         self.train_dataset, self.train_dataset_len = self.get_pipeline(dataset, "train")
-
         self.val_dataset, self.val_dataset_len = self.get_pipeline(dataset, "val")
 
     def luma_dither(
@@ -904,7 +893,7 @@ class GBColorizeDataModule(LightningDataModule):
             if fname.endswith(".tar") and fname.startswith(split)
         ]
 
-        length = get_sample_count(shards)
+        length = int(torch.load(os.path.join(dataset_path, f"{split}_length.pt")).item())
 
         return (
             wds.DataPipeline(

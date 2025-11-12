@@ -113,6 +113,8 @@ def process_split(
                 os.remove(os.path.join(tmp_dir, f"{idx:07d}.luma.npz"))
                 os.remove(os.path.join(tmp_dir, f"{idx:07d}.color.npz"))
 
+    torch.save(len(samples), os.path.join(data_dir, f"{prefix}_length.pt"))
+
     return bin_counts
 
 
