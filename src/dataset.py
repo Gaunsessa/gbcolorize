@@ -54,7 +54,7 @@ def process_shard(
     with ThreadPoolExecutor(max_workers=workers) as exe:
         proc_fn = partial(process_chunk, bins=bins, device=device)
 
-        with tqdm(total=len(imgs)) as pbar:
+        with tqdm(total=len(imgs), desc=f"Processing chunks", leave=False) as pbar:
             for count, indicies, batch_bin_counts, lumas, binned_colors, colors in exe.map(
                 proc_fn, chunks
             ):
@@ -94,7 +94,7 @@ def process_split(
 
     bin_counts = torch.zeros(bins.shape[0], dtype=torch.float64).to(device)
 
-    for shard_idx, shard in enumerate(shards):
+    for shard_idx, shard in tqdm(enumerate(shards), desc=f"Processing {prefix} shards", total=len(shards)):
         bin_counts += process_shard(
             shard,
             bins,
