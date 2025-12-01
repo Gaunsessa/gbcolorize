@@ -2,9 +2,7 @@
 
 Colorize your GameBoy Camera photos! Live demo [here](https://gaunsessa.github.io/gbcolorize/).
 
-<p align="center">
-    <img src="imgs/example.png" alt="Example">
-</p>
+![Example](imgs/example.png)
 
 ## Training own model
 
