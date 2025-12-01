@@ -12,6 +12,8 @@ working/
 
 # Python
 __pycache__/
+pyrightconfig.json
+typings/
 
 *.pyc
 *.pyo

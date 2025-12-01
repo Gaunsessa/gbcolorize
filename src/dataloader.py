@@ -852,64 +852,34 @@ DITHERS = (
     / 255.0
 )
 
+dithers = DITHERS
+dithers = dithers.view(-1).repeat(3, 1)
+dithers = rgb_to_lab(dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
+dithers = dithers.repeat(1, 28, 32, 1)
 
-class GBColorizeDataset(IterableDataset):
-    def __init__(self, dataset_path: str, split: Literal["train", "val"], binned: bool):
-        self.dataset_path = dataset_path
-        self.split = split
-        self.length = torch.load(os.path.join(dataset_path, f"{split}_length.pt"))
-        self.binned = binned
 
-        self.dithers = DITHERS
-        self.dithers = self.dithers.view(-1).repeat(3, 1)
-        self.dithers = rgb_to_lab(self.dithers)[0].view(DITHERS.shape[0], 4, 4, 3)
-        self.dithers = self.dithers.repeat(1, 28, 32, 1)
+def decode_sample(s):
+    return (
+        torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
+        torch.tensor(s["color.npz"]["color"], dtype=torch.float32),
+        torch.tensor(s["binned_color.npz"]["binned_color"], dtype=torch.long),
+    )
 
-        shards = [
-            os.path.join(dataset_path, fname)
-            for fname in os.listdir(dataset_path)
-            if fname.endswith(".tar") and fname.startswith(split)
-        ]
 
-        self.pipeline = wds.DataPipeline(
-            wds.SimpleShardList(shards),
-            wds.tarfile_to_samples(),
-            wds.decode(),
-            wds.map(self.extract_sample),
-            wds.map(self.luma_dither),
-            wds.shuffle(1000) if split == "train" else None,
-        )
+def luma_dither(s):
+    luma, color, binned_color = s
 
-    def extract_sample(self, s):
-        return (
-            torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
-            torch.tensor(s["color.npz"]["color"], dtype=torch.float32),
-            torch.tensor(s["binned_color.npz"]["binned_color"], dtype=torch.long),
-        )
+    dither = dithers[torch.randint(0, dithers.shape[0], (1,))]
 
-    def luma_dither(
-        self, sample: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        luma, color, binned_color = sample
+    luma = (luma[..., None] > dither).sum(dim=-1)
 
-        dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
-
-        luma = (luma[..., None] > dither).sum(dim=-1)
-
-        return luma, color, binned_color
-
-    def __iter__(self):
-        return iter(self.pipeline)
-
-    def __len__(self):
-        return self.length
+    return luma, color, binned_color
 
 
 class GBColorizeDataModule(LightningDataModule):
     def __init__(
         self,
-        dataset: str,
-        binned: bool,
+        dataset_path: str,
         batch_size: int,
         num_workers: int,
     ):
@@ -918,23 +888,67 @@ class GBColorizeDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-        self.train_dataset = GBColorizeDataset(dataset, "train", binned)
-        self.val_dataset = GBColorizeDataset(dataset, "val", binned)
+        self.train_pipeline = self.init_pipeline(dataset_path, "train")
+        self.val_pipeline = self.init_pipeline(dataset_path, "val")
+
+        self.train_length = torch.load(os.path.join(dataset_path, "train_length.pt"))
+        self.val_length = torch.load(os.path.join(dataset_path, "val_length.pt"))
+
+    def init_pipeline(self, dataset_path: str, split: Literal["train", "val"]):
+        shards = [
+            os.path.join(dataset_path, fname)
+            for fname in os.listdir(dataset_path)
+            if fname.endswith(".tar") and fname.startswith(split)
+        ]
+
+        return wds.DataPipeline(
+            wds.SimpleShardList(shards),
+            wds.tarfile_to_samples(),
+            wds.decode(),
+            wds.map(decode_sample),
+            wds.map(luma_dither),
+            wds.shuffle(1000) if split == "train" else None,
+        )
 
     def train_dataloader(self):
-        return DataLoader(
-            self.train_dataset,
+        loader =  wds.WebLoader(
+            self.train_pipeline,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
-            pin_memory=self.num_workers > 0,
-        )
+            shuffle=False,
+        ).with_epoch(self.train_length // self.batch_size).with_length(self.train_length // self.batch_size)
+
+        return loader
 
     def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
+        loader =  wds.WebLoader(
+            self.val_pipeline,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=self.num_workers > 0,
-            pin_memory=self.num_workers > 0,
-        )
+            shuffle=False,
+        ).with_epoch(self.val_length // self.batch_size).with_length(self.val_length // self.batch_size)
+
+        return loader
+
+
+if __name__ == "__main__":
+    import time
+    from tqdm import tqdm
+
+    dataset = GBColorizeDataModule("datasets/8k_other/data", 128, 4)
+
+    dl = dataset.train_dataloader()
+
+    st = time.time()
+
+    for i in range(5):
+        count = 0
+
+        for luma, color, binned_color in tqdm(dl):
+            count += luma.shape[0]
+
+        print(count)
+
+    print(time.time() - st)
