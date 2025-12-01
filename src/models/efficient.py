@@ -1,26 +1,51 @@
 import torch
-import torchvision
 import torch.nn as nn
 import torch.nn.functional as tf
 
+from torchvision.models import (
+    efficientnet_b0,
+    EfficientNet_B0_Weights,
+    efficientnet_b1,
+    EfficientNet_B1_Weights,
+    efficientnet_b2,
+    EfficientNet_B2_Weights,
+    efficientnet_b3,
+    EfficientNet_B3_Weights,
+)
+
 from .base import BaseModel
 
-class EfficientNetB3Encoder(nn.Module):
-    def __init__(self):
+
+class EfficientNetEncoder(nn.Module):
+    def __init__(self, size: int):
         super().__init__()
 
-        model = torchvision.models.efficientnet_b3(
-            weights=torchvision.models.EfficientNet_B3_Weights.DEFAULT
-        )
+        sizes = [
+            (efficientnet_b0, EfficientNet_B0_Weights),
+            (efficientnet_b1, EfficientNet_B1_Weights),
+            (efficientnet_b2, EfficientNet_B2_Weights),
+            (efficientnet_b3, EfficientNet_B3_Weights),
+        ]
+
+        model = sizes[size][0](weights=sizes[size][1].DEFAULT)
 
         self.stem = model.features[0]
-        self.stage1 = model.features[1:3]
-        self.stage2 = model.features[3:5]
-        self.stage3 = model.features[5:7]
-        self.stage4 = model.features[7:10]
-        self.stage5 = model.features[10:13]
-        self.stage6 = model.features[13:17]
-        self.stage7 = model.features[17:]
+        self.stage1 = model.features[1]
+        self.stage2 = model.features[2]
+        self.stage3 = model.features[3]
+        self.stage4 = model.features[4]
+        self.stage5 = model.features[5]
+        self.stage6 = model.features[6]
+        self.stage7 = model.features[7]
+        # self.head   = model.features[8]
+
+        self.output_features = [
+            self.stage1[-1].out_channels,
+            self.stage2[-1].out_channels,
+            self.stage3[-1].out_channels,
+            self.stage5[-1].out_channels,
+            self.stage7[-1].out_channels,
+        ]
 
     def forward(self, x):
         skips = []
@@ -36,11 +61,14 @@ class EfficientNetB3Encoder(nn.Module):
         skips.append(x)
 
         x = self.stage4(x)
-        skips.append(x)
 
         x = self.stage5(x)
+        skips.append(x)
+
         x = self.stage6(x)
+
         x = self.stage7(x)
+        skips.append(x)
 
         return x, skips
 
@@ -55,22 +83,20 @@ class DecoderBlock(nn.Module):
         in_channels,
         skip_channels,
         out_channels,
-        output_activation: nn.Module = nn.ReLU(),
+        output_activation: nn.Module = nn.ReLU(inplace=True),
     ):
         super().__init__()
-        
-        self.skip_reduce = nn.Conv2d(skip_channels, min(in_channels, skip_channels), kernel_size=1, bias=False)
 
         self.block1 = nn.Sequential(
             nn.Conv2d(
-                in_channels + min(in_channels, skip_channels),
+                in_channels + skip_channels,
                 out_channels,
                 kernel_size=3,
                 padding=1,
                 bias=False,
             ),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(),
+            nn.ReLU(inplace=True),
         )
 
         self.block2 = nn.Sequential(
@@ -81,9 +107,6 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x, skip):
         x = tf.interpolate(x, size=skip.shape[2:], mode="bilinear", align_corners=False)
-        
-        skip = self.skip_reduce(skip)
-
         x = torch.cat([x, skip], dim=1)
 
         x = self.block1(x)
@@ -103,31 +126,39 @@ class DecoderBlock(nn.Module):
 
 
 class EfficientModel(BaseModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(
+        self,
+        size: int,
+        binned: bool,
+        loss_fn: torch.nn.Module,
+        lr: float,
+    ):
+        super().__init__(binned, loss_fn, lr)
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
 
-        self.encoder = EfficientNetB3Encoder()
+        self.encoder = EfficientNetEncoder(size)
 
         self.bottle_neck = nn.Sequential(
-            nn.Conv2d(1536, 512, 1, stride=1, padding=0),
-            nn.ReLU(),
-            nn.Conv2d(512, 256, 4, stride=1, padding=0),
-            nn.ReLU(),
+            nn.Conv2d(self.encoder.output_features[4], 256, 1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, 4, stride=1, padding=0),
+            nn.ReLU(inplace=True),
         )
 
-        self.decode1 = DecoderBlock(256, 1536, 256)
-        self.decode2 = DecoderBlock(256, 232, 128)
-        self.decode3 = DecoderBlock(128, 96, 128)
-        self.decode4 = DecoderBlock(128, 32, 256)
+        self.decode1 = DecoderBlock(256, self.encoder.output_features[3], 128)
+        self.decode2 = DecoderBlock(128, self.encoder.output_features[2], 64)
+        self.decode3 = DecoderBlock(64, self.encoder.output_features[1], 32)
+        self.decode4 = DecoderBlock(32, self.encoder.output_features[0], 16)
 
-        self.output = DecoderBlock(256, 1, 256, output_activation=nn.Identity())
+        self.output = DecoderBlock(
+            16, 1, 256 if self.binned else 2, output_activation=nn.Identity()
+        )
 
     def forward(self, input):
-        x = self.expand(input)
-
-        x, skips = self.encoder(x)
+        with torch.no_grad():
+            x = input.repeat(1, 3, 1, 1)
+            x, skips = self.encoder(x)
 
         x = self.bottle_neck(x)
 
