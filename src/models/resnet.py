@@ -8,8 +8,8 @@ from .base import BaseModel
 
 
 class ResnetModel(BaseModel):
-    def __init__(self, output_features: int, loss_fn: torch.nn.Module, lr: float):
-        super().__init__(output_features, loss_fn, lr)
+    def __init__(self, binned: bool, loss_fn: torch.nn.Module, lr: float):
+        super().__init__(binned, loss_fn, lr)
 
         resnet = resnet34(weights=ResNet34_Weights.DEFAULT)
 
@@ -62,7 +62,7 @@ class ResnetModel(BaseModel):
                     nn.BatchNorm2d(64),
                 ),
                 nn.Sequential(
-                    nn.ConvTranspose2d(64, output_features, 4, stride=2, padding=1),
+                    nn.ConvTranspose2d(64, 256 if self.binned else 2, 4, stride=2, padding=1),
                 ),
             ]
         )

@@ -10,7 +10,7 @@ from lightning.pytorch.utilities import rank_zero_only
 from lightning.pytorch.strategies import DDPStrategy
 
 from dataloader import GBColorizeDataModule
-from color_loss import ColorLoss
+from color_loss import BinnedColorLoss, ColorLoss
 
 from utils.color import get_color_bins, precompute_color_bins_weights
 
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--model", type=str, required=True, choices=MODELS.keys())
     parser.add_argument("--size", type=int, required=False, choices=[0, 1, 2, 3])
-    parser.add_argument("--binned", type=bool, required=True)
+    parser.add_argument("--binned", action="store_true")
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--batch", type=int, required=True)
     parser.add_argument("--lr", type=float, required=True)
@@ -50,25 +50,41 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    # Load bins
     bins = get_color_bins()
     bin_knn_idx, bin_knn_weights = precompute_color_bins_weights(bins)
-    bin_weights = torch.load(os.path.join(args.dataset, "bin_weights.pt")).to(torch.float32)
+    bin_weights = torch.load(os.path.join(args.dataset, "bin_weights.pt")).to(
+        torch.float32
+    )
 
-    loss_fn = ColorLoss(bin_knn_idx, bin_knn_weights, bin_weights**args.weight_alpha)
+    # Load loss function
+    loss_fn = (
+        BinnedColorLoss(bin_knn_idx, bin_knn_weights, bin_weights**args.weight_alpha)
+        if args.binned
+        else ColorLoss(bin_weights**args.weight_alpha)
+    )
 
+    # Load model
     kwargs = {"size": args.size} if args.model == "efficient" else {}
 
-    model = MODELS[args.model](**kwargs, output_features=len(bins), loss_fn=loss_fn, lr=args.lr)
+    model = MODELS[args.model](
+        **kwargs, binned=args.binned, loss_fn=loss_fn, lr=args.lr
+    )
     model.init_weights()
     model.freeze_encoder()
 
-    datamodule = GBColorizeDataModule(os.path.join(args.dataset, "data"), args.batch, args.workers)
+    # Load dataset
+    datamodule = GBColorizeDataModule(
+        os.path.join(args.dataset, "data"), args.binned, args.batch, args.workers
+    )
 
+    # Train
     logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
         logger=logger,
-        # strategy=DDPStrategy(find_unused_parameters=True),
-        # precision="16-mixed",
+        devices=3,
+        strategy=DDPStrategy(find_unused_parameters=True),
+        precision="16-mixed",
         max_epochs=args.epochs,
         num_sanity_val_steps=0,
     )

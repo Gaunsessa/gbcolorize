@@ -4,7 +4,7 @@ import tarfile
 
 import webdataset as wds
 
-from typing import Literal
+from typing import Callable, Literal
 
 from torch.utils.data import DataLoader, IterableDataset
 
@@ -854,10 +854,11 @@ DITHERS = (
 
 
 class GBColorizeDataset(IterableDataset):
-    def __init__(self, dataset_path: str, split: Literal["train", "val"]):
+    def __init__(self, dataset_path: str, split: Literal["train", "val"], binned: bool):
         self.dataset_path = dataset_path
         self.split = split
         self.length = torch.load(os.path.join(dataset_path, f"{split}_length.pt"))
+        self.binned = binned
 
         self.dithers = DITHERS
         self.dithers = self.dithers.view(-1).repeat(3, 1)
@@ -874,26 +875,28 @@ class GBColorizeDataset(IterableDataset):
             wds.SimpleShardList(shards),
             wds.tarfile_to_samples(),
             wds.decode(),
-            wds.map(
-                lambda s: (
-                    torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
-                    torch.tensor(s["color.npz"]["color"], dtype=torch.long),
-                )
-            ),
+            wds.map(self.extract_sample),
             wds.map(self.luma_dither),
             wds.shuffle(1000) if split == "train" else None,
         )
 
+    def extract_sample(self, s):
+        return (
+            torch.tensor(s["luma.npz"]["luma"], dtype=torch.float32),
+            torch.tensor(s["color.npz"]["color"], dtype=torch.float32),
+            torch.tensor(s["binned_color.npz"]["binned_color"], dtype=torch.long),
+        )
+
     def luma_dither(
-        self, sample: tuple[torch.Tensor, torch.Tensor]
-    ) -> tuple[torch.Tensor, torch.Tensor]:
-        luma, color = sample
+        self, sample: tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        luma, color, binned_color = sample
 
         dither = self.dithers[torch.randint(0, self.dithers.shape[0], (1,))]
 
         luma = (luma[..., None] > dither).sum(dim=-1)
 
-        return luma, color
+        return luma, color, binned_color
 
     def __iter__(self):
         return iter(self.pipeline)
@@ -906,6 +909,7 @@ class GBColorizeDataModule(LightningDataModule):
     def __init__(
         self,
         dataset: str,
+        binned: bool,
         batch_size: int,
         num_workers: int,
     ):
@@ -914,8 +918,8 @@ class GBColorizeDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
 
-        self.train_dataset = GBColorizeDataset(dataset, "train")
-        self.val_dataset = GBColorizeDataset(dataset, "val")
+        self.train_dataset = GBColorizeDataset(dataset, "train", binned)
+        self.val_dataset = GBColorizeDataset(dataset, "val", binned)
 
     def train_dataloader(self):
         return DataLoader(

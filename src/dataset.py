@@ -19,11 +19,14 @@ from utils.color import get_color_bins, quantize_colors, vrgb_to_lab
 
 def process_chunk(
     chunk: list[tuple[int, str]], bins: torch.Tensor, device: str
-) -> tuple[int, list[int], torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[int, list[int], torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     indicies, paths = zip(*chunk)
     imgs = torch.stack([scale_img(read_img(path)) for path in paths]).to(device)
 
     labs = vrgb_to_lab(imgs)
+
+    colors = labs[:, 1:].clone().to(torch.float16)
+
     labs = quantize_colors(labs, bins)
 
     bin_counts = torch.zeros(bins.shape[0], dtype=torch.float64).to(device)
@@ -31,9 +34,9 @@ def process_chunk(
     bin_counts[batch_idx.to(torch.int)] += batch_counts
 
     lumas = labs[:, :1].to(torch.float16)
-    colors = labs[:, 1:].to(torch.uint8)
+    binned_colors = labs[:, 1:].to(torch.uint8)
 
-    return len(imgs), list(indicies), bin_counts, lumas, colors
+    return len(imgs), list(indicies), bin_counts, lumas, binned_colors, colors
 
 
 def process_shard(
@@ -52,15 +55,19 @@ def process_shard(
         proc_fn = partial(process_chunk, bins=bins, device=device)
 
         with tqdm(total=len(imgs)) as pbar:
-            for count, indicies, batch_bin_counts, lumas, colors in exe.map(
+            for count, indicies, batch_bin_counts, lumas, binned_colors, colors in exe.map(
                 proc_fn, chunks
             ):
                 bin_counts += batch_bin_counts
 
-                for idx, luma, color in zip(indicies, lumas, colors):
+                for idx, luma, binned_color, color in zip(indicies, lumas, binned_colors, colors):
                     np.savez_compressed(
                         os.path.join(output, f"{idx:07d}.luma.npz"),
                         luma=luma.cpu().numpy(),
+                    )
+                    np.savez_compressed(
+                        os.path.join(output, f"{idx:07d}.binned_color.npz"),
+                        binned_color=binned_color.cpu().numpy(),
                     )
                     np.savez_compressed(
                         os.path.join(output, f"{idx:07d}.color.npz"),
@@ -106,11 +113,16 @@ def process_split(
                     arcname=f"{idx:07d}.luma.npz",
                 )
                 tar.add(
+                    os.path.join(tmp_dir, f"{idx:07d}.binned_color.npz"),
+                    arcname=f"{idx:07d}.binned_color.npz",
+                )
+                tar.add(
                     os.path.join(tmp_dir, f"{idx:07d}.color.npz"),
                     arcname=f"{idx:07d}.color.npz",
                 )
 
                 os.remove(os.path.join(tmp_dir, f"{idx:07d}.luma.npz"))
+                os.remove(os.path.join(tmp_dir, f"{idx:07d}.binned_color.npz"))
                 os.remove(os.path.join(tmp_dir, f"{idx:07d}.color.npz"))
 
     torch.save(len(samples), os.path.join(data_dir, f"{prefix}_length.pt"))

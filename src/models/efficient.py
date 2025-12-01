@@ -129,11 +129,11 @@ class EfficientModel(BaseModel):
     def __init__(
         self,
         size: int,
-        output_features: int,
+        binned: bool,
         loss_fn: torch.nn.Module,
         lr: float,
     ):
-        super().__init__(output_features, loss_fn, lr)
+        super().__init__(binned, loss_fn, lr)
 
         self.expand = nn.Conv2d(1, 3, 1, stride=1, padding=0)
 
@@ -152,7 +152,7 @@ class EfficientModel(BaseModel):
         self.decode4 = DecoderBlock(32, self.encoder.output_features[0], 16)
 
         self.output = DecoderBlock(
-            16, 1, output_features, output_activation=nn.Identity()
+            16, 1, 256 if self.binned else 2, output_activation=nn.Identity()
         )
 
     def forward(self, input):

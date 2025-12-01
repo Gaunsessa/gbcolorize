@@ -9,47 +9,50 @@ from utils.color import dequantize_colors, get_color_bins, vlab_to_rgb
 
 
 class BaseModel(LightningModule, ABC):
-    output_features: int
+    binned: bool
     loss_fn: nn.Module
     lr: float
     
-    def __init__(self, output_features: int, loss_fn: nn.Module, lr: float):
+    def __init__(self, binned: bool, loss_fn: nn.Module, lr: float):
         super().__init__()
         self.save_hyperparameters()
         
-        self.output_features = output_features
+        self.binned = binned
         self.loss_fn = loss_fn
         self.lr = lr
 
     def training_step(self, batch, batch_idx):
-        input, target = batch
+        luma, color, binned_color = batch
 
-        pred = self.forward(input / 3.0)
+        pred = self.forward(luma / 3.0)
 
-        loss = self.loss_fn(pred, target)
+        loss = self.loss_fn(pred, color, binned_color)
         self.log("train_loss", loss)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        input, target = batch
+        luma, color, binned_color = batch
 
-        pred = self.forward(input / 3.0)
+        pred = self.forward(luma / 3.0)
 
-        loss = self.loss_fn(pred, target)
+        loss = self.loss_fn(pred, color, binned_color)
         self.log("val_loss", loss)
 
         if batch_idx == 0:
             pred = pred[:100].cpu()
-            input = input[:100].cpu()
+            luma = luma[:100].cpu()
 
-            luma_mapping = torch.tensor([0.60, 0.83, 0.91, 0.97], device=input.device)
-            luma = luma_mapping[input]
+            luma_mapping = torch.tensor([0.60, 0.83, 0.91, 0.97], device=luma.device)
+            luma = luma_mapping[luma]
 
-            color = pred.argmax(dim=1, keepdim=True)
+            if self.binned:
+                pred = pred.argmax(dim=1, keepdim=True)
+                imgs = torch.cat([luma, pred], dim=1)
+                imgs = dequantize_colors(imgs, get_color_bins())
+            else:
+                imgs = torch.cat([luma, pred], dim=1)
 
-            imgs = torch.cat([luma, color], dim=1)
-            imgs = dequantize_colors(imgs, get_color_bins())
             imgs = vlab_to_rgb(imgs)
 
             # I do it like this to make pyright happy ;-;
