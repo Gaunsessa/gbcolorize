@@ -52,11 +52,13 @@ if __name__ == "__main__":
 
     bins = get_color_bins()
     bin_knn_idx, bin_knn_weights = precompute_color_bins_weights(bins)
-    bin_weights = torch.load(os.path.join(args.dataset, "bin_weights.pt"))
+    bin_weights = torch.load(os.path.join(args.dataset, "bin_weights.pt")).to(torch.float32)
 
     loss_fn = ColorLoss(bin_knn_idx, bin_knn_weights, bin_weights**args.weight_alpha)
 
-    model = EfficientModel(args.size, len(bins), loss_fn, lr=args.lr)
+    kwargs = {"size": args.size} if args.model == "efficient" else {}
+
+    model = MODELS[args.model](**kwargs, output_features=len(bins), loss_fn=loss_fn, lr=args.lr)
     model.init_weights()
     model.freeze_encoder()
 
@@ -65,8 +67,8 @@ if __name__ == "__main__":
     logger = TBLogger(name=None, save_dir="runs", default_hp_metric=False)
     trainer = Trainer(
         logger=logger,
-        strategy=DDPStrategy(find_unused_parameters=True),
-        precision="16-mixed",
+        # strategy=DDPStrategy(find_unused_parameters=True),
+        # precision="16-mixed",
         max_epochs=args.epochs,
         num_sanity_val_steps=0,
     )
