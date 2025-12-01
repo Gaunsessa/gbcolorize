@@ -1,4 +1,5 @@
 import sys
+import argparse
 import torch
 import torch.nn as nn
 
@@ -35,15 +36,14 @@ class Pipeline(nn.Module):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python onnx.py <model> <ckpt_path> <onnx_dest>")
-        sys.exit(1)
 
-    model = sys.argv[1]
-    ckpt = sys.argv[2]
-    onnx_dest = sys.argv[3]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type=str, required=True)
+    parser.add_argument("--ckpt_path", type=str, required=True)
+    parser.add_argument("--onnx_dest", type=str, required=True)
+    args = parser.parse_args()
 
-    model = MODELS[model].load_from_checkpoint(ckpt)
+    model = MODELS[args.model].load_from_checkpoint(args.ckpt_path)
 
     pipeline = Pipeline(model, get_color_bins())
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     torch.onnx.export(
         pipeline,
         example_input,
-        onnx_dest,
+        args.onnx_dest,
         input_names=["gb_image"],
         output_names=["color_image"],
     )
